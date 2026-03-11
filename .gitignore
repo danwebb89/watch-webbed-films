@@ -1,8 +1,37 @@
+# Dependencies
 node_modules/
+
+# Video files
+*.mp4
+*.mov
+*.webm
+
+# Image/thumbnail files
+*.jpg
+*.jpeg
+*.JPG
+*.png
+*.gif
+*.webp
+
+# Exception: keep site assets (logo etc.)
+!public/assets/images/**
+
+# Audio files
+*.mp3
+*.wav
+*.aac
+
+# Originals directory
+originals/
+
+# Environment files
+.env
+.env.*
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Claude
 .claude/
-data/*.json
-public/assets/videos/*
-public/assets/thumbs/*
-!public/assets/videos/.gitkeep
-!public/assets/thumbs/.gitkeep
