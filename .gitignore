@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.claude/
+data/*.json
+public/assets/videos/*
+public/assets/thumbs/*
+!public/assets/videos/.gitkeep
+!public/assets/thumbs/.gitkeep

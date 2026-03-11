@@ -1,0 +1,21 @@
+services:
+  watchadmin:
+    build: ./admin
+    ports:
+      - "3500:3500"
+    volumes:
+      # Persistent data (on array)
+      - /mnt/user/Webbed Films/watch-platform/videos:/videos
+      - /mnt/user/Webbed Films/watch-platform/data:/data
+      # Live code (git pull updates these without rebuild)
+      - ./public:/public-site:ro
+      - ./admin/public:/app/public:ro
+      - ./admin/server.js:/app/server.js:ro
+    environment:
+      - ADMIN_PASSWORD=Bubblegum12
+      - VIDEO_DIR=/videos
+      - THUMB_DIR=/videos/thumbs
+      - DATA_DIR=/data
+      - PUBLIC_DIR=/public-site
+      - PORT=3500
+    restart: unless-stopped

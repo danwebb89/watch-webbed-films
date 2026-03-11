@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Watch Webbed Films</title>
+  <link rel="stylesheet" href="/admin-assets/css/admin.css">
+</head>
+<body>
+  <header class="admin-header">
+    <div style="display:flex;align-items:center;">
+      <span class="wordmark">WEBBED<span class="accent">FILMS</span></span>
+      <span class="tag">// Admin</span>
+    </div>
+    <div class="admin-header-right">
+      <a href="/" target="_blank" class="btn-logout">View Site</a>
+      <button id="btn-logout" class="btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="films">// Films</button>
+    <button class="admin-tab" data-tab="projects">// Client Projects</button>
+    <button class="admin-tab" data-tab="upload">// Upload</button>
+  </div>
+
+  <!-- FILMS TAB -->
+  <div class="admin-content">
+    <div id="tab-films" class="tab-panel active">
+      <div class="section-head">
+        <h2>Public Films</h2>
+        <button class="btn" id="btn-add-film">+ Add Film</button>
+      </div>
+      <div id="films-list"></div>
+    </div>
+
+    <!-- PROJECTS TAB -->
+    <div id="tab-projects" class="tab-panel">
+      <div class="section-head">
+        <h2>Client Projects</h2>
+        <button class="btn" id="btn-add-project">+ Add Project</button>
+      </div>
+      <div id="projects-list"></div>
+    </div>
+
+    <!-- UPLOAD TAB -->
+    <div id="tab-upload" class="tab-panel">
+      <div class="section-head">
+        <h2>Upload Files</h2>
+      </div>
+
+      <h3 style="font-weight:300;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:16px;">Videos</h3>
+      <div class="upload-zone" id="video-upload-zone">
+        <p>Drop video file here or click to browse</p>
+        <input type="file" id="video-file-input" accept="video/*">
+      </div>
+      <div id="video-upload-progress" class="upload-progress" style="display:none">
+        <div class="upload-progress-bar"><div id="video-progress-filled" class="upload-progress-filled"></div></div>
+        <p id="video-progress-text" class="upload-progress-text"></p>
+      </div>
+      <div id="transcode-status" class="transcode-list"></div>
+      <div id="video-file-list" class="file-list"></div>
+
+      <div style="margin-top:40px;">
+        <h3 style="font-weight:300;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:16px;">Thumbnails</h3>
+        <div class="upload-zone" id="thumb-upload-zone">
+          <p>Drop thumbnail image here or click to browse</p>
+          <input type="file" id="thumb-file-input" accept="image/*">
+        </div>
+        <div id="thumb-upload-progress" class="upload-progress" style="display:none">
+          <div class="upload-progress-bar"><div id="thumb-progress-filled" class="upload-progress-filled"></div></div>
+          <p id="thumb-progress-text" class="upload-progress-text"></p>
+        </div>
+        <div id="thumb-file-list" class="file-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILM MODAL (Add / Edit) -->
+  <div id="film-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="film-modal-title">Add Film</h3>
+      <input type="hidden" id="film-edit-slug">
+      <form id="film-form">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="film-title" required>
+        </div>
+        <div class="form-group" id="film-slug-group">
+          <label>Slug</label>
+          <input type="text" id="film-slug" placeholder="auto-generated from title">
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="film-category">
+            <option value="">Select category...</option>
+            <option value="Feature Films">Feature Films</option>
+            <option value="Short Films">Short Films</option>
+            <option value="Media Zoo">Media Zoo</option>
+            <option value="Ratcliffe Studios">Ratcliffe Studios</option>
+            <option value="Revelstoke Films">Revelstoke Films</option>
+            <option value="Showreels">Showreels</option>
+            <option value="Trailers and BTS">Trailers and BTS</option>
+            <option value="Webbed Films">Webbed Films</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Year</label>
+          <input type="number" id="film-year" value="2024">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="film-description"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Video File</label>
+          <select id="film-video"><option value="">Select video...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Thumbnail</label>
+          <select id="film-thumb"><option value="">Select thumbnail...</option></select>
+          <div id="thumb-preview" class="thumb-preview" style="display:none">
+            <img id="thumb-preview-img" src="" alt="Thumbnail preview">
+            <span class="thumb-preview-label">Auto-generated — change above to override</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-danger" onclick="closeModal('film-modal')">Cancel</button>
+          <button type="submit" class="btn" id="film-submit-btn">Save Film</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PROJECT MODAL (Add / Edit) -->
+  <div id="project-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="project-modal-title">Add Client Project</h3>
+      <input type="hidden" id="project-edit-uuid">
+      <form id="project-form">
+        <div class="form-group">
+          <label>Project Title</label>
+          <input type="text" id="project-title" required>
+        </div>
+        <div class="form-group">
+          <label>Video File</label>
+          <select id="project-video"><option value="">Select video...</option></select>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-danger" onclick="closeModal('project-modal')">Cancel</button>
+          <button type="submit" class="btn" id="project-submit-btn">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/admin-assets/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch — Webbed Films</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" class="logo-link"><img src="/assets/images/logo.png" alt="Webbed Films" class="logo"></a>
+    <nav class="site-nav">
+      <a href="/" class="active">Films</a>
+      <a href="/clients.html">Client Screenings</a>
+    </nav>
+  </header>
+
+  <div class="page-content">
+    <div class="film-strip">
+      <div class="film-strip-holes"></div>
+    </div>
+
+    <section class="page-title">
+      <h1>Films</h1>
+      <p class="subtitle">// Selected Works</p>
+    </section>
+
+    <nav id="category-filter" class="category-filter">
+      <button class="cat-btn active" data-cat="all">All</button>
+      <button class="cat-btn" data-cat="Feature Films">Feature Films</button>
+      <button class="cat-btn" data-cat="Short Films">Short Films</button>
+      <button class="cat-btn" data-cat="Media Zoo">Media Zoo</button>
+      <button class="cat-btn" data-cat="Ratcliffe Studios">Ratcliffe Studios</button>
+      <button class="cat-btn" data-cat="Revelstoke Films">Revelstoke Films</button>
+      <button class="cat-btn" data-cat="Showreels">Showreels</button>
+      <button class="cat-btn" data-cat="Trailers and BTS">Trailers and BTS</button>
+      <button class="cat-btn" data-cat="Webbed Films">Webbed Films</button>
+    </nav>
+
+    <main id="film-grid" class="film-grid">
+      <!-- Populated by JS -->
+    </main>
+
+    <div class="film-strip">
+      <div class="film-strip-holes"></div>
+    </div>
+
+    <footer class="site-footer">
+      <p>&copy; 2025 Webbed Films</p>
+    </footer>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
