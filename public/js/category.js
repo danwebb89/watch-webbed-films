@@ -52,27 +52,45 @@ document.addEventListener('DOMContentLoaded', async () => {
       grid.className = '';
       return;
     }
-    grid.className = 'film-grid';
+    grid.className = 'portfolio-grid';
     grid.innerHTML = films.map(film => {
       const locked = film.password_protected && !isUnlocked(film.slug);
-      const lockIcon = locked ? `<div class="film-card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
+      const lockIcon = locked ? `<div class="card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
+      const cta = locked ? '<span class="card-cta" style="color:var(--color-muted)">REQUEST ACCESS</span>' : '<span class="card-cta">WATCH ▶</span>';
       return `
-      <a href="${locked ? '#' : `/watch.html?film=${film.slug}`}" class="film-card${locked ? ' film-card-locked' : ''}" ${locked ? `data-slug="${film.slug}" data-title="${film.title}"` : ''}>
-        <img src="${film.thumbnail}" alt="${film.title}" loading="lazy"
-             onerror="this.style.display='none'">
-        ${lockIcon}
-        <div class="film-card-overlay">
-          <div class="film-card-meta">${film.category} &mdash; ${film.year}</div>
-          <div class="film-card-title">${film.title}</div>
+      <div class="portfolio-card${locked ? ' portfolio-card-locked' : ''}" data-slug="${film.slug}" data-title="${film.title}" data-locked="${locked}">
+        <div class="card-thumb">
+          <img src="${film.thumbnail}" alt="${film.title}" loading="lazy" onerror="this.style.display='none'">
+          ${lockIcon}
         </div>
-      </a>`;
+        <div class="card-overlay">
+          <div class="card-overlay-title">${film.title}</div>
+          <div class="card-overlay-meta">${film.category} — ${film.year}</div>
+          ${cta}
+        </div>
+      </div>`;
     }).join('');
 
-    // Attach click handlers for locked films
-    grid.querySelectorAll('.film-card-locked').forEach(card => {
+    // Scroll-in animation
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    grid.querySelectorAll('.portfolio-card').forEach(card => observer.observe(card));
+
+    // Click handlers
+    grid.querySelectorAll('.portfolio-card').forEach(card => {
       card.addEventListener('click', (e) => {
         e.preventDefault();
-        openPasswordModal(card.dataset.slug, card.dataset.title);
+        if (card.dataset.locked === 'true') {
+          openPasswordModal(card.dataset.slug, card.dataset.title);
+        } else {
+          window.location.href = `/watch.html?film=${card.dataset.slug}`;
+        }
       });
     });
   }

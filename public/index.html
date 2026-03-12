@@ -25,43 +25,51 @@
 
   <div class="page-content">
 
-    <!-- Hero: Film of the Day -->
-    <section id="hero" class="hero-screen hidden">
-      <a id="hero-link" href="#" class="hero-screen-link">
-        <div class="hero-screen-frame">
-          <img id="hero-img" src="" alt="">
-          <div class="hero-screen-play">
-            <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
-          </div>
-        </div>
-        <div class="hero-screen-info">
-          <p class="hero-label">// Film of the Day</p>
-          <h2 id="hero-title" class="hero-screen-title"></h2>
-          <p id="hero-meta" class="hero-screen-meta"></p>
-        </div>
-      </a>
+    <!-- Grade Monitor: Film of the Day -->
+    <div id="monitor" class="monitor" aria-label="Film of the Day preview">
+      <span class="mon-label mon-label-tl">SCREENING · ROOM</span>
+      <div id="rec-badge" aria-hidden="true"><span id="rec-dot"></span>REC</div>
+      <span class="mon-label mon-label-bl">WEBBED FILMS · DANIEL WEBB</span>
+      <span class="mon-label mon-label-br" id="timecode" aria-hidden="true">00:00:00:00</span>
+
+      <div class="corner corner-tl" aria-hidden="true"></div>
+      <div class="corner corner-tr" aria-hidden="true"></div>
+      <div class="corner corner-bl" aria-hidden="true"></div>
+      <div class="corner corner-br" aria-hidden="true"></div>
+
+      <canvas id="monitor-canvas" aria-hidden="true"></canvas>
+      <div id="monitor-thumb-a" class="monitor-thumb" aria-hidden="true"></div>
+      <div id="monitor-thumb-b" class="monitor-thumb" aria-hidden="true"></div>
+      <div id="monitor-scanlines" aria-hidden="true"></div>
+      <div id="monitor-vignette" aria-hidden="true"></div>
+      <div id="monitor-idle-wash" aria-hidden="true"></div>
+      <div id="monitor-gradient" aria-hidden="true"></div>
+
+      <div id="monitor-idle">
+        <span class="idle-msg">// Film of the Day</span>
+      </div>
+
+      <div id="monitor-hover" aria-hidden="true">
+        <div class="hover-cat" id="hover-cat"></div>
+        <div class="hover-title" id="hover-title"></div>
+        <div class="hover-subtitle" id="hover-subtitle"></div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-pill active" data-cat="all">All</button>
+      <button class="filter-pill" data-cat="Originals">Originals</button>
+      <button class="filter-pill" data-cat="Documentary">Documentary</button>
+      <button class="filter-pill" data-cat="Short Films">Short Films</button>
+      <button class="filter-pill" data-cat="Feature Films">Feature Films</button>
+      <button class="filter-pill" data-cat="Corporate">Corporate</button>
+    </div>
+
+    <section class="portfolio-section">
+      <div id="film-grid" class="portfolio-grid">
+        <!-- Populated by JS -->
+      </div>
     </section>
-
-    <div class="film-strip">
-      <div class="film-strip-holes"></div>
-    </div>
-
-    <nav id="category-filter" class="category-filter">
-      <button class="cat-btn active" data-cat="all">All</button>
-      <button class="cat-btn" data-cat="Originals">Originals</button>
-      <button class="cat-btn" data-cat="Documentary">Documentary</button>
-      <button class="cat-btn" data-cat="Short Films">Short Films</button>
-      <button class="cat-btn" data-cat="Feature Films">Feature Films</button>
-      <button class="cat-btn" data-cat="Corporate">Corporate</button>
-    </nav>
-
-    <main id="film-grid" class="film-grid">
-      <!-- Populated by JS -->
-    </main>
-
-    <div class="film-strip">
-      <div class="film-strip-holes"></div>
-    </div>
 
     <footer class="site-footer">
       <div class="footer-bottom">
