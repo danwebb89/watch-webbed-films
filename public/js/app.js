@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       if (res.ok) {
         markUnlocked(slug);
+        sessionStorage.setItem('pw_token_' + slug, password);
         modal.classList.add('hidden');
         window.location.href = `/watch.html?film=${slug}`;
       } else {

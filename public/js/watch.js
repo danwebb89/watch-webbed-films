@@ -36,10 +36,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (film.password_protected && !film.video) {
-      // Film is locked — show inline password form
+      // Check if already unlocked in this session (from homepage modal)
+      const unlocked = JSON.parse(sessionStorage.getItem('unlocked_films') || '[]');
+      const token = sessionStorage.getItem('pw_token_' + slug);
+      if (unlocked.includes(slug) && token) {
+        // Re-verify with stored password to get video path
+        try {
+          const vRes = await fetch(`/api/public/films/${slug}/verify-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: token })
+          });
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            loadVideo(vData.video);
+            return;
+          }
+        } catch {}
+      }
+      // Not unlocked or token expired — show password gate
       showPasswordGate(slug, film);
     } else {
-      // Film is public or already unlocked
       loadVideo(film.video);
     }
   } catch (e) {
@@ -89,11 +106,12 @@ function showPasswordGate(slug) {
       });
       if (res.ok) {
         const data = await res.json();
-        // Save unlocked state
+        // Save unlocked state + password token for session reuse
         try {
           const unlocked = JSON.parse(sessionStorage.getItem('unlocked_films') || '[]');
           if (!unlocked.includes(slug)) unlocked.push(slug);
           sessionStorage.setItem('unlocked_films', JSON.stringify(unlocked));
+          sessionStorage.setItem('pw_token_' + slug, password);
         } catch {}
         // Replace gate with player
         playerWrap.innerHTML = `
