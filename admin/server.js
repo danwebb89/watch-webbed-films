@@ -248,7 +248,12 @@ const thumbUpload = multer({
 
 // ---- API Routes (all require auth) ----
 
-app.post('/api/upload/video', requireAuth, videoUpload.single('file'), (req, res) => {
+app.post('/api/upload/video', requireAuth, (req, res, next) => {
+  // No timeout for video uploads (files can be multi-GB)
+  req.setTimeout(0);
+  res.setTimeout(0);
+  next();
+}, videoUpload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
 
   const originalPath = path.join(ORIGINALS_DIR, req.file.filename);
@@ -482,8 +487,14 @@ function loginPage() {
 
 // ---- Start ----
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Watch Admin] Running on port ${PORT}`);
   console.log(`[Watch Admin] VIDEO_DIR: ${VIDEO_DIR}`);
   console.log(`[Watch Admin] DATA_DIR: ${DATA_DIR}`);
 });
+
+// Allow large uploads — disable default 2-minute timeout
+server.timeout = 0;
+server.keepAliveTimeout = 0;
+server.headersTimeout = 0;
+server.requestTimeout = 0;
