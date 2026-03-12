@@ -272,6 +272,12 @@ app.post('/api/public/access-request', (req, res) => {
 app.get('/api/public/projects/:uuid', (req, res) => {
   const project = db.projectByUuid(req.params.uuid);
   if (!project || !project.active) return res.status(404).json({ error: 'Not found' });
+  // Serve latest version's video/thumbnail
+  const latest = db.latestVersion(req.params.uuid);
+  if (latest) {
+    project.video = latest.video;
+    project.thumbnail = latest.thumbnail || '';
+  }
   res.json(project);
 });
 
@@ -509,7 +515,11 @@ app.put('/api/films/:slug/password', requireAuth, (req, res) => {
 // ---- Projects CRUD ----
 
 app.get('/api/projects', requireAuth, (req, res) => {
-  res.json(db.allProjects());
+  const projects = db.allProjects().map(p => {
+    const versions = db.versionsByProject(p.uuid);
+    return { ...p, version_count: versions.length };
+  });
+  res.json(projects);
 });
 
 app.post('/api/projects', requireAuth, (req, res) => {
@@ -529,6 +539,28 @@ app.put('/api/projects/:uuid', requireAuth, (req, res) => {
 
 app.delete('/api/projects/:uuid', requireAuth, (req, res) => {
   db.deleteProject(req.params.uuid);
+  res.json({ ok: true });
+});
+
+// ---- Project Versions ----
+
+app.get('/api/projects/:uuid/versions', requireAuth, (req, res) => {
+  const project = db.projectByUuid(req.params.uuid);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  res.json(db.versionsByProject(req.params.uuid));
+});
+
+app.post('/api/projects/:uuid/versions', requireAuth, (req, res) => {
+  const project = db.projectByUuid(req.params.uuid);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  const { video, thumbnail, note } = req.body;
+  if (!video) return res.status(400).json({ error: 'Video path required' });
+  const version = db.createVersion({ project_uuid: req.params.uuid, video, thumbnail, note });
+  res.json(version);
+});
+
+app.delete('/api/projects/:uuid/versions/:id', requireAuth, (req, res) => {
+  db.deleteVersion(parseInt(req.params.id));
   res.json({ ok: true });
 });
 

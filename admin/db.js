@@ -50,12 +50,31 @@ function init(dataDir) {
       active INTEGER DEFAULT 1,
       created TEXT DEFAULT (date('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS project_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_uuid TEXT NOT NULL REFERENCES projects(uuid) ON DELETE CASCADE,
+      version_number INTEGER NOT NULL,
+      video TEXT NOT NULL,
+      thumbnail TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Migrations for existing databases
   const cols = db.pragma('table_info(films)').map(c => c.name);
   if (!cols.includes('password_hash')) {
     db.exec('ALTER TABLE films ADD COLUMN password_hash TEXT');
+  }
+
+  // Migrate existing projects with video into project_versions
+  const projects = db.prepare('SELECT uuid, video FROM projects WHERE video != ""').all();
+  for (const p of projects) {
+    const existing = db.prepare('SELECT id FROM project_versions WHERE project_uuid = ?').get(p.uuid);
+    if (!existing) {
+      db.prepare('INSERT INTO project_versions (project_uuid, version_number, video, note) VALUES (?, 1, ?, ?)').run(p.uuid, p.video, 'Initial version');
+    }
   }
 
   return db;
@@ -209,6 +228,27 @@ function deleteProject(uuid) {
   return getDb().prepare('DELETE FROM projects WHERE uuid = ?').run(uuid);
 }
 
+// ---- Project Versions ----
+
+function versionsByProject(uuid) {
+  return getDb().prepare('SELECT * FROM project_versions WHERE project_uuid = ? ORDER BY version_number DESC').all(uuid);
+}
+
+function latestVersion(uuid) {
+  return getDb().prepare('SELECT * FROM project_versions WHERE project_uuid = ? ORDER BY version_number DESC LIMIT 1').get(uuid) || null;
+}
+
+function createVersion({ project_uuid, video, thumbnail, note }) {
+  const max = getDb().prepare('SELECT MAX(version_number) as m FROM project_versions WHERE project_uuid = ?').get(project_uuid);
+  const versionNumber = (max && max.m ? max.m : 0) + 1;
+  getDb().prepare('INSERT INTO project_versions (project_uuid, version_number, video, thumbnail, note) VALUES (?, ?, ?, ?, ?)').run(project_uuid, versionNumber, video, thumbnail || '', note || '');
+  return getDb().prepare('SELECT * FROM project_versions WHERE project_uuid = ? AND version_number = ?').get(project_uuid, versionNumber);
+}
+
+function deleteVersion(id) {
+  return getDb().prepare('DELETE FROM project_versions WHERE id = ?').run(id);
+}
+
 // ---- Access Requests ----
 
 function createAccessRequest({ film_slug, name, email, reason }) {
@@ -241,5 +281,6 @@ module.exports = {
   allFilms, publicFilms, filmBySlug, featuredFilm, createFilm, updateFilm, deleteFilm,
   setFilmPassword, verifyFilmPassword, filmIsLocked,
   allProjects, projectByUuid, createProject, updateProject, deleteProject,
+  versionsByProject, latestVersion, createVersion, deleteVersion,
   createAccessRequest, allAccessRequests, pendingAccessRequests, updateAccessRequest, deleteAccessRequest
 };
