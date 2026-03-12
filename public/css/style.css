@@ -293,184 +293,6 @@ a {
   margin-top: 16px;
 }
 
-/* ---- TIMELINE PANEL ---- */
-
-#timeline-panel {
-  display: flex;
-  background: #080808;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  height: 160px;
-  overflow: hidden;
-}
-
-#track-sidebar {
-  width: 140px;
-  flex-shrink: 0;
-  background: #0a0a0a;
-  border-right: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  flex-direction: column;
-  padding-top: 22px;
-}
-
-.track-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  height: 34px;
-  cursor: default;
-}
-
-.track-swatch {
-  width: 3px;
-  height: 16px;
-  border-radius: 1px;
-  flex-shrink: 0;
-}
-
-.track-label {
-  font-family: var(--font-ui);
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(240,237,232,0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.track-count {
-  font-family: var(--mono);
-  font-size: 8px;
-  color: rgba(240,237,232,0.25);
-  margin-left: auto;
-}
-
-#timeline-scroll {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: hidden;
-  position: relative;
-}
-
-#timeline-scroll::-webkit-scrollbar { height: 6px; }
-#timeline-scroll::-webkit-scrollbar-track { background: transparent; }
-#timeline-scroll::-webkit-scrollbar-thumb { background: rgba(200,169,110,0.22); border-radius: 3px; }
-
-#timeline-inner {
-  position: relative;
-  min-width: 100%;
-  width: 1600px;
-  height: 100%;
-}
-
-/* Ruler */
-#tc-ruler {
-  height: 22px;
-  position: relative;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-.tc-mark {
-  position: absolute;
-  top: 4px;
-  font-family: var(--mono);
-  font-size: 7px;
-  color: rgba(240,237,232,0.2);
-  transform: translateX(-50%);
-}
-
-.tc-tick {
-  position: absolute;
-  top: 0;
-  width: 1px;
-  height: 8px;
-  background: rgba(255,255,255,0.08);
-}
-
-.tc-tick-major {
-  height: 14px;
-  background: rgba(255,255,255,0.12);
-}
-
-/* Track Lanes */
-#track-lanes {
-  position: relative;
-  height: calc(100% - 22px);
-  display: flex;
-  flex-direction: column;
-}
-
-.track-lane {
-  flex: 1;
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  padding: 2px 4px;
-  position: relative;
-}
-
-.track-lane:nth-child(even) {
-  background: rgba(255,255,255,0.015);
-}
-
-.clip-block {
-  position: relative;
-  height: 100%;
-  min-width: 40px;
-  border-radius: 2px;
-  overflow: hidden;
-  cursor: pointer;
-  border-left: 3px solid;
-  background-size: cover;
-  background-position: center;
-  transition: filter 0.2s, transform 0.15s;
-}
-
-.clip-block::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(0,0,0,0.5), rgba(0,0,0,0.2));
-}
-
-.clip-block:hover {
-  filter: brightness(1.4);
-  transform: translateY(-1px);
-  z-index: 2;
-}
-
-.clip-gap {
-  flex-shrink: 0;
-  position: relative;
-}
-
-/* Playhead */
-#playhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255,255,255,0.55);
-  z-index: 10;
-  pointer-events: none;
-  left: 60px;
-}
-
-#playhead::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -4px;
-  width: 0; height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 6px solid rgba(255,255,255,0.7);
-}
-
 /* ---- STATUS BAR ---- */
 
 #status-bar {
@@ -589,8 +411,8 @@ a {
 
 .browse-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   width: 100%;
 }
 
@@ -949,7 +771,7 @@ a {
 /* ---- RESPONSIVE ---- */
 
 @media (max-width: 900px) {
-  .browse-grid { grid-template-columns: repeat(2, 1fr); }
+  .browse-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .work-title { font-size: 52px; }
 }
 
@@ -957,14 +779,12 @@ a {
   .site-header { padding: 0 20px; }
   .site-nav { gap: 16px; }
   .site-nav a { font-size: 10px; }
-  .browse-grid { grid-template-columns: 1fr; }
+  .browse-grid { grid-template-columns: 1fr; gap: 8px; }
   #portfolio-browse { padding: 60px 16px 80px; }
   .browse-filter-bar { gap: 8px; }
   .monitor { height: 36vh; }
   .corner { display: none; }
   .hover-title { font-size: 24px; padding: 0 24px; }
-  #timeline-panel { height: 120px; }
-  #track-sidebar { width: 100px; }
   .watch-container { padding: 0 24px 60px; }
   .screening-header, .screening-body { padding-left: 24px; padding-right: 24px; }
   .watch-meta { flex-direction: column; gap: 8px; }
@@ -973,5 +793,4 @@ a {
 @media (max-width: 600px) {
   .work-hero { padding-top: 110px; margin-bottom: 40px; }
   .work-title { font-size: 36px; }
-  #timeline-panel { display: none; }
 }

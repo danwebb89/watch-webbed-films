@@ -2,21 +2,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const grid = document.getElementById('film-grid');
   let allFilms = [];
 
-  // ---- Track colors by category ----
-  const TRACK_COLORS = {
-    'Documentary':    '#55efc4',
-    'Corporate':      '#ffeaa7',
-    'Feature Films':  '#a29bfe',
-    'Short Films':    '#74b9ff',
-    'Original':       '#fd79a8',
-    'Showreels':      '#e17055',
-    'Trailers and BTS': '#dfe6e9',
-    'Media Zoo':      '#00cec9',
-    'Ratcliffe Studios': '#fab1a0',
-    'Revelstoke Films': '#81ecec',
-    'Webbed Films':   '#ffeaa7'
-  };
-
   // ---- Grade Monitor ----
   const monitor = document.getElementById('monitor');
   let thumbActive = 'a';
@@ -352,7 +337,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch('/api/public/films');
     allFilms = await res.json();
     renderFilms(allFilms);
-    buildTimeline(allFilms);
     updateStatusBar(allFilms);
   } catch (e) {
     grid.innerHTML = '<div class="empty-state"><p>// Unable to load films</p></div>';
@@ -375,124 +359,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // ════════════════════════════════════
-  //  TIMELINE PANEL
-  // ════════════════════════════════════
-
-  function buildTimeline(films) {
-    const sidebar = document.getElementById('track-sidebar');
-    const lanes = document.getElementById('track-lanes');
-    const ruler = document.getElementById('tc-ruler');
-    if (!sidebar || !lanes || !ruler) return;
-
-    // Group films by category
-    const catMap = {};
-    films.forEach(f => {
-      const cat = f.category || 'Uncategorised';
-      if (!catMap[cat]) catMap[cat] = [];
-      catMap[cat].push(f);
-    });
-
-    const categories = Object.keys(catMap);
-    if (categories.length === 0) return;
-
-    // Calculate timeline width based on total films
-    const totalClips = films.length;
-    const timelineWidth = Math.max(1600, totalClips * 180);
-    document.getElementById('timeline-inner').style.width = timelineWidth + 'px';
-
-    // Build ruler ticks
-    ruler.innerHTML = '';
-    const tickInterval = 100;
-    const majorInterval = 500;
-    let tc = 0;
-    for (let px = 0; px < timelineWidth; px += tickInterval) {
-      const isMajor = px % majorInterval === 0;
-      const tick = document.createElement('div');
-      tick.className = 'tc-tick' + (isMajor ? ' tc-tick-major' : '');
-      tick.style.left = px + 'px';
-      ruler.appendChild(tick);
-
-      if (isMajor) {
-        const mark = document.createElement('div');
-        mark.className = 'tc-mark';
-        mark.style.left = px + 'px';
-        const h = Math.floor(tc / 3600);
-        const m = Math.floor((tc % 3600) / 60);
-        const s = tc % 60;
-        mark.textContent = String(h).padStart(2, '0') + ':' +
-                           String(m).padStart(2, '0') + ':' +
-                           String(s).padStart(2, '0') + ':00';
-        ruler.appendChild(mark);
-      }
-      tc += 4;
-    }
-
-    // Build sidebar headers + track lanes
-    sidebar.innerHTML = '';
-    lanes.innerHTML = '';
-
-    categories.forEach(cat => {
-      const color = TRACK_COLORS[cat] || '#aaa';
-      const count = catMap[cat].length;
-
-      // Sidebar header
-      const header = document.createElement('div');
-      header.className = 'track-header';
-      header.innerHTML = `
-        <div class="track-swatch" style="background:${color}"></div>
-        <span class="track-label">${cat}</span>
-        <span class="track-count">${count}</span>
-      `;
-      sidebar.appendChild(header);
-
-      // Track lane with clip blocks
-      const lane = document.createElement('div');
-      lane.className = 'track-lane';
-
-      const catFilms = catMap[cat];
-      catFilms.forEach((film, i) => {
-        // Random gap before clip
-        if (i > 0 && Math.random() > 0.4) {
-          const gap = document.createElement('div');
-          gap.className = 'clip-gap';
-          gap.style.width = (8 + Math.random() * 30) + 'px';
-          lane.appendChild(gap);
-        }
-
-        const clip = document.createElement('div');
-        clip.className = 'clip-block';
-        clip.style.flex = (0.6 + Math.random() * 1.4).toFixed(2);
-        clip.style.borderLeftColor = color;
-        if (film.thumbnail) {
-          clip.style.backgroundImage = `url("${film.thumbnail}")`;
-        } else {
-          clip.style.background = `linear-gradient(135deg, ${color}22, ${color}08)`;
-        }
-        clip.title = film.title;
-        clip.addEventListener('click', () => {
-          window.location.href = `/watch.html?film=${film.slug}`;
-        });
-        lane.appendChild(clip);
-      });
-
-      lanes.appendChild(lane);
-    });
-
-    // Playhead animation
-    const playhead = document.getElementById('playhead');
-    if (playhead) {
-      let pos = 60;
-      function animatePlayhead() {
-        pos += 0.3;
-        if (pos > timelineWidth) pos = 60;
-        playhead.style.left = pos + 'px';
-        requestAnimationFrame(animatePlayhead);
-      }
-      animatePlayhead();
-    }
-  }
-
   // ---- Status Bar ----
   function updateStatusBar(films) {
     const el = document.getElementById('sb-counts');
@@ -505,8 +371,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const parts = Object.entries(catMap).map(([cat, count]) => {
-      const color = TRACK_COLORS[cat] || '#aaa';
-      return `<em style="color:${color}">${count}</em> ${cat}`;
+      return `<em>${count}</em> ${cat}`;
     });
 
     el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
