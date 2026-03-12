@@ -641,7 +641,7 @@ a {
 
 /* ---- WATCH PAGE ---- */
 
-.watch-container { max-width: 1200px; margin: 0 auto; padding: 0 48px 80px; flex: 1; }
+.watch-container { max-width: 1400px; margin: 0 auto; padding: 0 48px 80px; flex: 1; }
 
 .watch-title {
   font-family: 'Cinzel', serif; font-weight: 300;
@@ -663,8 +663,8 @@ a {
 
 .player-big-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; transition: opacity 0.3s; }
 .player-big-play.hidden { opacity: 0; pointer-events: none; }
-.player-big-play-btn { width: 80px; height: 80px; border: 2px solid rgba(240,237,232,0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: border-color 0.2s, background 0.2s; }
-.player-big-play-btn svg { fill: var(--text); width: 28px; height: 28px; margin-left: 4px; }
+.player-big-play-btn { width: 60px; height: 60px; border: 1.5px solid rgba(240,237,232,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: border-color 0.2s, background 0.2s; }
+.player-big-play-btn svg { fill: var(--text); width: 22px; height: 22px; margin-left: 3px; }
 .player-big-play:hover .player-big-play-btn { border-color: var(--accent); background: rgba(200,169,110,0.1); }
 .player-big-play:hover .player-big-play-btn svg { fill: var(--accent); }
 
