@@ -188,6 +188,13 @@ function uploadVideoInModal(file) {
   filmProgressText.textContent = 'Uploading...';
   filmSubmitBtn.disabled = true;
 
+  // Update cancel button to indicate background option
+  const cancelBtn = document.querySelector('#film-modal .btn-danger');
+  if (cancelBtn) {
+    cancelBtn.textContent = 'Continue in Background';
+    cancelBtn._wasTranscoding = true;
+  }
+
   const titleField = document.getElementById('film-title');
   if (!titleField.value.trim()) {
     titleField.value = titleFromFilename(file.name);
@@ -409,6 +416,10 @@ document.getElementById('btn-add-film').addEventListener('click', () => {
   filmProgressWrap.style.display = 'none';
   filmProgressFilled.style.width = '0%';
   filmProgressFilled.classList.remove('progress-done', 'progress-error');
+
+  // Reset cancel button text
+  const cancelBtn = document.querySelector('#film-modal .btn-danger');
+  if (cancelBtn) cancelBtn.textContent = 'Cancel';
 
   document.getElementById('thumb-preview').style.display = 'none';
 
