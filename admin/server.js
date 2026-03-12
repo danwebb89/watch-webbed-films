@@ -294,12 +294,14 @@ app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'assets', 'images', 'favicon.png'));
 });
 
-// Serve public site (no cache on JS/CSS/HTML for dev)
+// Serve public site (no cache on anything — Cloudflare was serving stale files)
 app.use(express.static(PUBLIC_DIR, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-    }
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Surrogate-Control', 'no-store');
   }
 }));
 
