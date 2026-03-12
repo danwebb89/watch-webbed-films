@@ -129,12 +129,13 @@ async function uploadFileChunked(file) {
       const chunk = file.slice(start, end);
 
       const formData = new FormData();
-      formData.append('chunk', chunk);
+      // Fields MUST come before the file blob for multer to parse them
       formData.append('uploadId', uploadId);
       formData.append('chunkIndex', i.toString());
       formData.append('totalChunks', totalChunks.toString());
       formData.append('filename', safeName);
       formData.append('fileSize', file.size.toString());
+      formData.append('chunk', chunk);
 
       const res = await fetch('/api/upload/video-chunk', {
         method: 'POST',

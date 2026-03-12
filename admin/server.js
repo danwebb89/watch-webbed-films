@@ -294,13 +294,10 @@ app.post('/api/upload/video', requireAuth, (req, res, next) => {
 
 const chunkUpload = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadDir = path.join(CHUNKS_DIR, req.body.uploadId || 'unknown');
-      fs.mkdirSync(uploadDir, { recursive: true });
-      cb(null, uploadDir);
-    },
+    destination: (req, file, cb) => cb(null, CHUNKS_DIR),
     filename: (req, file, cb) => {
-      cb(null, `chunk_${req.body.chunkIndex}`);
+      // Use a temp name — we'll rename after multer parses all fields
+      cb(null, `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     }
   }),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB per chunk
@@ -309,6 +306,12 @@ const chunkUpload = multer({
 app.post('/api/upload/video-chunk', requireAuth, chunkUpload.single('chunk'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No chunk' });
   const { uploadId, chunkIndex, totalChunks } = req.body;
+
+  // Rename temp file to proper name now that we have the form fields
+  const properName = `${uploadId}_chunk_${chunkIndex.padStart(6, '0')}`;
+  const properPath = path.join(CHUNKS_DIR, properName);
+  fs.renameSync(req.file.path, properPath);
+
   console.log(`[Upload] Chunk ${parseInt(chunkIndex)+1}/${totalChunks} for ${uploadId}`);
   res.json({ ok: true, chunkIndex: parseInt(chunkIndex) });
 });
@@ -317,22 +320,22 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
   const { uploadId, filename } = req.body;
   if (!uploadId || !filename) return res.status(400).json({ error: 'Missing uploadId or filename' });
 
-  const chunkDir = path.join(CHUNKS_DIR, uploadId);
-  if (!fs.existsSync(chunkDir)) return res.status(400).json({ error: 'No chunks found' });
+  // Find all chunks for this uploadId
+  const allFiles = fs.readdirSync(CHUNKS_DIR);
+  const chunkFiles = allFiles
+    .filter(f => f.startsWith(uploadId + '_chunk_'))
+    .sort();
+
+  if (chunkFiles.length === 0) return res.status(400).json({ error: 'No chunks found' });
 
   try {
-    // Get all chunk files sorted by index
-    const chunkFiles = fs.readdirSync(chunkDir)
-      .filter(f => f.startsWith('chunk_'))
-      .sort((a, b) => parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]));
-
     // Assemble into originals dir
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const assembledPath = path.join(ORIGINALS_DIR, safe);
     const writeStream = fs.createWriteStream(assembledPath);
 
     for (const chunkFile of chunkFiles) {
-      const chunkPath = path.join(chunkDir, chunkFile);
+      const chunkPath = path.join(CHUNKS_DIR, chunkFile);
       const data = fs.readFileSync(chunkPath);
       writeStream.write(data);
     }
@@ -344,7 +347,9 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
     });
 
     // Clean up chunks
-    fs.rmSync(chunkDir, { recursive: true, force: true });
+    for (const chunkFile of chunkFiles) {
+      fs.unlinkSync(path.join(CHUNKS_DIR, chunkFile));
+    }
 
     console.log(`[Upload] Assembled ${chunkFiles.length} chunks → ${safe} (${(fs.statSync(assembledPath).size / 1024 / 1024).toFixed(1)} MB)`);
 
