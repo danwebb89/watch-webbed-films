@@ -104,25 +104,7 @@
         </div>
         <div class="form-group">
           <label>Description</label>
-          <textarea id="film-description" rows="2"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Synopsis</label>
-          <textarea id="film-synopsis" rows="3" placeholder="Detailed synopsis or logline"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Credits</label>
-          <textarea id="film-credits" rows="3" placeholder="Director, Producer, DOP, etc."></textarea>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Duration (minutes)</label>
-            <input type="number" id="film-duration" placeholder="e.g. 12">
-          </div>
-          <div class="form-group">
-            <label>Dan's Role</label>
-            <input type="text" id="film-role" placeholder="e.g. Director / Editor">
-          </div>
+          <textarea id="film-description" rows="3"></textarea>
         </div>
         <div class="form-group">
           <label>Visibility</label>
@@ -132,18 +114,22 @@
               <span>Public</span>
             </label>
             <label class="radio-label">
+              <input type="radio" name="film-visibility" value="private">
+              <span>Private</span>
+            </label>
+            <label class="radio-label">
               <input type="radio" name="film-visibility" value="client">
               <span>Client</span>
             </label>
           </div>
+          <p class="form-hint" id="visibility-hint">Visible to everyone</p>
         </div>
-        <div class="form-group">
-          <label>Password Protection</label>
+        <div class="form-group" id="film-password-group" style="display:none">
+          <label>Password</label>
           <div class="password-field-wrap">
-            <input type="text" id="film-password" placeholder="Leave empty for no password">
+            <input type="text" id="film-password" placeholder="Enter password">
             <span id="film-password-status" class="password-status"></span>
           </div>
-          <p class="form-hint">Set a password to restrict access. Clear to make freely viewable.</p>
         </div>
         <div class="form-group">
           <label class="checkbox-label">

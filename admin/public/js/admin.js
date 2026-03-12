@@ -359,10 +359,8 @@ document.getElementById('btn-add-film').addEventListener('click', () => {
   document.getElementById('film-featured').checked = false;
   document.getElementById('film-password').value = '';
   document.getElementById('film-password-status').textContent = '';
-  document.getElementById('film-synopsis').value = '';
-  document.getElementById('film-credits').value = '';
-  document.getElementById('film-duration').value = '';
-  document.getElementById('film-role').value = '';
+  document.getElementById('film-password-group').style.display = 'none';
+  document.getElementById('visibility-hint').textContent = 'Visible to everyone';
 
   clearModalTranscode();
   openModal('film-modal');
@@ -386,10 +384,6 @@ async function editFilm(slug) {
   document.getElementById('film-category').value = film.category || '';
   document.getElementById('film-year').value = film.year || new Date().getFullYear();
   document.getElementById('film-description').value = film.description || '';
-  document.getElementById('film-synopsis').value = film.synopsis || '';
-  document.getElementById('film-credits').value = film.credits || '';
-  document.getElementById('film-duration').value = film.duration_minutes || '';
-  document.getElementById('film-role').value = film.role_description || '';
 
   // Set video path
   document.getElementById('film-video-path').value = film.video || '';
@@ -410,9 +404,12 @@ async function editFilm(slug) {
   filmProgressFilled.style.width = '0%';
   filmProgressFilled.classList.remove('progress-done', 'progress-error');
 
-  // Set visibility
-  const vis = film.public ? 'public' : 'client';
+  // Set visibility: public, private (password-protected), or client
+  let vis = 'public';
+  if (!film.public) vis = 'client';
+  else if (film.password_hash) vis = 'private';
   document.querySelector(`input[name="film-visibility"][value="${vis}"]`).checked = true;
+  updateVisibilityUI(vis);
   document.getElementById('film-featured').checked = !!film.eligible_for_featured;
   document.getElementById('film-password').value = '';
   const pwStatus = document.getElementById('film-password-status');
@@ -490,17 +487,14 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
 
   const editSlug = document.getElementById('film-edit-slug').value;
   const isEdit = !!editSlug;
-  const isPublic = document.querySelector('input[name="film-visibility"]:checked').value === 'public';
+  const visValue = document.querySelector('input[name="film-visibility"]:checked').value;
+  const isPublic = visValue === 'public' || visValue === 'private';
 
   const data = {
     title: document.getElementById('film-title').value,
     category: document.getElementById('film-category').value,
     year: document.getElementById('film-year').value,
     description: document.getElementById('film-description').value,
-    synopsis: document.getElementById('film-synopsis').value,
-    credits: document.getElementById('film-credits').value,
-    duration_minutes: document.getElementById('film-duration').value ? parseInt(document.getElementById('film-duration').value) : null,
-    role_description: document.getElementById('film-role').value,
     video: videoPath,
     thumbnail,
     public: isPublic,
@@ -592,7 +586,7 @@ async function loadProjects() {
                 /screening?id=${p.uuid}
               </span>
             </td>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${p.created}</td>
+            <td style="font-family:var(--font);font-size:11px;color:var(--text-muted)">${p.created}</td>
             <td>
               <span class="${p.active ? 'status-active' : 'status-inactive'}">${p.active ? 'ACTIVE' : 'DISABLED'}</span>
             </td>
@@ -722,11 +716,11 @@ async function loadRequests() {
       <tbody>
         ${requests.map(r => `
           <tr>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:0.5px">${r.film_slug}</td>
+            <td style="font-family:var(--font);font-size:11px;color:var(--gold);letter-spacing:0.5px">${r.film_slug}</td>
             <td>${r.name}</td>
             <td><a href="mailto:${r.email}" style="color:var(--gold)">${r.email}</a></td>
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:12px">${r.reason || '—'}</td>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${r.requested_at ? r.requested_at.split('T')[0] : ''}</td>
+            <td style="font-family:var(--font);font-size:11px;color:var(--text-muted)">${r.requested_at ? r.requested_at.split('T')[0] : ''}</td>
             <td>
               <span class="${r.status === 'pending' ? 'status-pending' : r.status === 'approved' ? 'status-active' : 'status-inactive'}">${r.status.toUpperCase()}</span>
             </td>
@@ -770,6 +764,26 @@ async function deleteRequest(id) {
   toast('Request deleted');
   loadRequests();
 }
+
+// ---- Visibility radio change ----
+function updateVisibilityUI(value) {
+  const hint = document.getElementById('visibility-hint');
+  const pwGroup = document.getElementById('film-password-group');
+  if (value === 'public') {
+    hint.textContent = 'Visible to everyone';
+    pwGroup.style.display = 'none';
+  } else if (value === 'private') {
+    hint.textContent = 'Requires a password to view';
+    pwGroup.style.display = 'block';
+  } else {
+    hint.textContent = 'Only accessible via client screening link';
+    pwGroup.style.display = 'none';
+  }
+}
+
+document.querySelectorAll('input[name="film-visibility"]').forEach(radio => {
+  radio.addEventListener('change', (e) => updateVisibilityUI(e.target.value));
+});
 
 // ---- Init ----
 loadFilms();
