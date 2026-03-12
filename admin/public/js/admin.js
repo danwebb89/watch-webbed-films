@@ -43,23 +43,43 @@ function closeModal(id) {
 let bgTranscodeId = null;
 let bgTranscodeInterval = null;
 let bgTranscodeFilename = null;
+let bgFormData = null; // captured form data for auto-save after bg transcode
 
 function clearModalTranscode() {
   // If a transcode is actively running, move it to background instead of cancelling
   if (modalTranscodeInterval && modalTranscodeId) {
     bgTranscodeId = modalTranscodeId;
-    bgTranscodeFilename = null; // already set in pollModalTranscode
-    // Keep polling in background
+    bgTranscodeFilename = null;
+    // Capture form data now so we can auto-save when transcode finishes
+    bgFormData = captureFilmFormData();
     clearInterval(modalTranscodeInterval);
     modalTranscodeInterval = null;
     startBgTranscodePoll();
-    toast('Transcoding in background...');
+    toast('Transcoding in background — will auto-save when done');
   } else if (modalTranscodeInterval) {
     clearInterval(modalTranscodeInterval);
     modalTranscodeInterval = null;
   }
   modalTranscodeId = null;
   modalVideoPath = null;
+}
+
+function captureFilmFormData() {
+  const editSlug = document.getElementById('film-edit-slug').value;
+  const visValue = document.querySelector('input[name="film-visibility"]:checked')?.value || 'public';
+  const isPublic = visValue === 'public' || visValue === 'private';
+  return {
+    isEdit: !!editSlug,
+    editSlug,
+    title: document.getElementById('film-title').value,
+    slug: document.getElementById('film-slug').value,
+    category: document.getElementById('film-category').value,
+    year: document.getElementById('film-year').value,
+    description: document.getElementById('film-description').value,
+    public: isPublic,
+    eligible_for_featured: document.getElementById('film-featured').checked,
+    password: document.getElementById('film-password').value
+  };
 }
 
 function startBgTranscodePoll() {
@@ -71,19 +91,90 @@ function startBgTranscodePoll() {
       if (job.status === 'done') {
         clearInterval(bgTranscodeInterval);
         bgTranscodeInterval = null;
-        toast('Transcode complete — open Films to save');
+
+        // Auto-save the film with the transcode results
+        if (bgFormData) {
+          await autoSaveFromBackground(job, bgFormData);
+          bgFormData = null;
+        } else {
+          toast('Transcode complete');
+        }
         bgTranscodeId = null;
       } else if (job.status === 'error') {
         clearInterval(bgTranscodeInterval);
         bgTranscodeInterval = null;
         toast('Background transcode failed: ' + (job.error || 'unknown'));
         bgTranscodeId = null;
+        bgFormData = null;
       }
     } catch {
       clearInterval(bgTranscodeInterval);
       bgTranscodeInterval = null;
     }
   }, 3000);
+}
+
+async function autoSaveFromBackground(job, formData) {
+  // Build video and thumbnail paths from transcode job
+  const videoPath = `/assets/videos/${job.output}`;
+
+  // Fetch thumb files to find the auto-generated thumbnail
+  await loadThumbFiles();
+  const videoName = job.output.replace(/\.[^.]+$/, '');
+  const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
+  const thumbnail = autoThumb ? autoThumb.path : (job.thumbnail || '');
+
+  const data = {
+    title: formData.title,
+    category: formData.category,
+    year: formData.year,
+    description: formData.description,
+    video: videoPath,
+    thumbnail,
+    public: formData.public,
+    eligible_for_featured: formData.eligible_for_featured,
+  };
+
+  if (!formData.isEdit) {
+    data.slug = formData.slug;
+  }
+
+  const url = formData.isEdit ? `/api/films/${formData.editSlug}` : '/api/films';
+  const method = formData.isEdit ? 'PUT' : 'POST';
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+      const savedFilm = await res.json();
+      const filmSlug = savedFilm.slug || data.slug || formData.editSlug;
+
+      // Set password if provided
+      if (formData.password) {
+        await fetch(`/api/films/${filmSlug}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: formData.password })
+        });
+      }
+
+      toast(`Film "${formData.title}" added`);
+      // Refresh film list if we're on the films section
+      const filmsSection = document.getElementById('section-films');
+      if (filmsSection && filmsSection.classList.contains('active')) {
+        loadFilms();
+      }
+    } else {
+      const err = await res.json();
+      toast('Auto-save failed: ' + (err.error || 'unknown error'));
+    }
+  } catch (e) {
+    toast('Auto-save failed: ' + e.message);
+  }
 }
 
 function clearVersionTranscode() {
