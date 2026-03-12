@@ -16,7 +16,7 @@
   --font-ui:      'Inter', 'DM Sans', sans-serif;
   --font:         'Inter', 'DM Sans', sans-serif;
   --mono:         'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  --header-h:     70px;
+  --header-h:     80px;
 }
 
 *, *::before, *::after {
@@ -129,7 +129,7 @@ a {
 }
 
 .logo {
-  max-height: 55px;
+  max-height: 72px;
   width: auto;
   display: block;
 }
