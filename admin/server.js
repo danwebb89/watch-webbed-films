@@ -279,8 +279,19 @@ app.use('/admin-assets', express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Serve public site
-app.use(express.static(PUBLIC_DIR));
+// Favicon — serve PNG at /favicon.ico for browsers that look there
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'assets', 'images', 'favicon.png'));
+});
+
+// Serve public site (no cache on JS/CSS/HTML for dev)
+app.use(express.static(PUBLIC_DIR, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  }
+}));
 
 // ---- Public API (no auth required) ----
 

@@ -259,16 +259,16 @@ a {
 
 @keyframes ken-burns {
   0% { transform: scale(1); }
-  100% { transform: scale(1.08) translate(-1%, -0.5%); }
+  100% { transform: scale(1.12) translate(-1.5%, -1%); }
 }
 .monitor-thumb {
-  position: absolute; inset: -4%;
+  position: absolute; inset: -15%;
   background-size: cover; background-position: center;
   opacity: 0; z-index: 2;
   transition: opacity 0.8s ease;
 }
 .monitor-thumb.kb-active {
-  animation: ken-burns 12s ease-out forwards;
+  animation: ken-burns 14s ease-out forwards;
 }
 .monitor-thumb::after {
   content: ''; position: absolute; inset: 0;
