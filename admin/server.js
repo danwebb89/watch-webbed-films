@@ -620,7 +620,7 @@ function loginPage() {
     <div class="login-scanlines"></div>
     <div class="login-vignette"></div>
     <div class="login-box">
-      <img src="/assets/images/logo-new.png" alt="Webbed Films" class="login-logo">
+      <img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="login-logo">
       <p class="login-label">// ADMIN ACCESS</p>
       <form id="login-form">
         <input type="password" id="password" placeholder="Password" autofocus>
