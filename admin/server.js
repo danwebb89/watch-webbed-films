@@ -52,11 +52,10 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
 
   const args = [
     '-i', inputPath,
-    '-c:v', 'libx264',
+    '-c:v', 'libx265',
     '-preset', 'medium',
     '-crf', '20',
-    '-profile:v', 'high',
-    '-level', '4.1',
+    '-tag:v', 'hvc1',
     '-pix_fmt', 'yuv420p',
     '-c:a', 'aac',
     '-b:a', '192k',
