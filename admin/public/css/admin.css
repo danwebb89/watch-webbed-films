@@ -84,10 +84,12 @@ body {
 }
 
 .login-label {
-  font-family: var(--mono);
-  font-size: 9px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 2px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   margin-bottom: 32px;
 }
 
@@ -98,15 +100,16 @@ body {
 }
 
 .login-box input {
-  background: var(--bg-surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 12px 16px;
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 13px;
+  font-weight: 300;
   outline: none;
   text-align: center;
-  letter-spacing: 2px;
+  letter-spacing: 0.1em;
 }
 
 .login-box input:focus {
@@ -133,10 +136,11 @@ body {
 
 .login-error {
   color: var(--red);
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 11px;
+  font-weight: 400;
   margin-top: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 /* ---- ADMIN LAYOUT ---- */
@@ -145,96 +149,103 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 32px;
+  height: 80px;
+  padding: 0 36px;
   border-bottom: 1px solid var(--border);
-  background: rgba(10, 10, 10, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .admin-logo {
-  max-height: 50px;
+  max-height: 55px;
   width: auto;
   display: block;
 }
 
 .admin-header .tag {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  letter-spacing: 1.5px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.15em;
   text-transform: uppercase;
+  opacity: 0.45;
 }
 
 .admin-header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 2.5rem;
 }
 
 .btn-logout {
   background: none;
   border: none;
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1.5px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
   text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
 }
 
-.btn-logout:hover { color: var(--text); }
+.btn-logout:hover {
+  color: var(--gold);
+}
 
 /* ---- TABS ---- */
 
 .admin-tabs {
   display: flex;
+  align-items: center;
+  gap: 2.5rem;
   border-bottom: 1px solid var(--border);
-  border-top: 1px solid rgba(200, 169, 110, 0.06);
-  padding: 0 32px;
-  background: rgba(17, 17, 17, 0.5);
+  padding: 0 36px;
+  height: 50px;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .admin-tab {
-  padding: 14px 24px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text);
   cursor: pointer;
   border: none;
   background: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.3s, border-color 0.3s;
-  position: relative;
+  padding: 0;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  opacity: 0.45;
 }
 
-.admin-tab:hover { color: rgba(240, 237, 232, 0.7); }
+.admin-tab:hover {
+  color: var(--text);
+  opacity: 0.7;
+}
+
 .admin-tab.active {
   color: var(--gold);
-  border-bottom-color: transparent;
-}
-
-.admin-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--gold);
-  box-shadow: 0 0 8px rgba(200, 169, 110, 0.3);
+  border-bottom-color: var(--gold);
+  opacity: 1;
 }
 
 /* ---- CONTENT ---- */
 
 .admin-content {
-  padding: 32px;
+  padding: 36px;
   max-width: 1400px;
 }
 
@@ -251,11 +262,12 @@ body {
 }
 
 .section-head h2 {
-  font-family: var(--font-heading);
+  font-family: var(--font);
   font-weight: 300;
-  font-size: 18px;
-  letter-spacing: 0.12em;
+  font-size: 16px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
+  color: var(--text);
 }
 
 /* ---- ADD CIRCLE BUTTON (+ icon) ---- */
@@ -300,7 +312,7 @@ body {
   font-family: var(--font);
   font-weight: 500;
   font-size: 10px;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.2s, opacity 0.2s;
@@ -341,11 +353,11 @@ body {
 }
 
 .data-table th {
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 400;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   text-align: left;
   padding: 8px 12px;
@@ -365,23 +377,29 @@ body {
 
 .status-active {
   color: var(--green);
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .status-inactive {
   color: var(--text-muted);
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .status-pending {
   color: var(--gold);
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .tab-badge {
@@ -396,9 +414,11 @@ body {
 
 .status-locked {
   color: var(--gold);
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   margin-left: 6px;
 }
 
@@ -413,9 +433,11 @@ body {
 }
 
 .password-status {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -425,11 +447,12 @@ body {
 }
 
 .link-copy {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 11px;
+  font-weight: 400;
   color: var(--gold);
   cursor: pointer;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
 }
 
 .link-copy:hover { text-decoration: underline; }
@@ -463,10 +486,10 @@ body {
 }
 
 .modal h3 {
-  font-family: var(--font-heading);
+  font-family: var(--font);
   font-weight: 300;
-  font-size: 16px;
-  letter-spacing: 0.12em;
+  font-size: 15px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   margin-bottom: 24px;
   padding-bottom: 16px;
@@ -487,10 +510,11 @@ body {
 
 .form-group label {
   display: block;
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   margin-bottom: 6px;
 }
@@ -531,10 +555,11 @@ body {
 }
 
 .form-hint {
-  font-family: var(--mono);
-  font-size: 10px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 300;
   color: var(--text-muted);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
   margin-top: 4px;
 }
 
@@ -573,10 +598,11 @@ body {
 }
 
 .video-picker-name {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 11px;
+  font-weight: 400;
   color: var(--gold);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -610,10 +636,11 @@ body {
 }
 
 .upload-progress-text {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 10px;
+  font-weight: 400;
   color: var(--text-muted);
-  letter-spacing: 1px;
+  letter-spacing: 0.05em;
 }
 
 /* ---- RADIO GROUP (Public/Client) ---- */
@@ -719,10 +746,11 @@ body {
 }
 
 .thumb-preview-label {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 9px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -734,10 +762,11 @@ body {
 }
 
 .admin-empty p {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -750,10 +779,12 @@ body {
   background: var(--bg-elevated);
   border: 1px solid var(--gold);
   padding: 12px 20px;
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 11px;
+  font-weight: 500;
   color: var(--gold);
-  letter-spacing: 1px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   z-index: 2000;
   opacity: 0;
   transform: translateY(10px);
@@ -794,10 +825,11 @@ body {
 }
 
 .stat-label {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 9px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 
@@ -852,9 +884,10 @@ body {
 }
 
 .admin-badge {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 8px;
-  letter-spacing: 1px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   padding: 3px 8px;
   text-transform: uppercase;
   backdrop-filter: blur(4px);
@@ -903,10 +936,11 @@ body {
 }
 
 .admin-card-meta {
-  font-family: var(--mono);
+  font-family: var(--font);
   font-size: 9px;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: 1px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
