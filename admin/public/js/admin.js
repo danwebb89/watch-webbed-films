@@ -1,7 +1,9 @@
 // ---- State ----
 let videoFiles = [];
 let thumbFiles = [];
-let activeTranscodes = new Map();
+let modalTranscodeId = null;     // active transcode job in the film modal
+let modalVideoPath = null;       // resolved video path after transcode
+let modalTranscodeInterval = null;
 
 // ---- Tabs ----
 document.querySelectorAll('.admin-tab').forEach(tab => {
@@ -28,12 +30,28 @@ function openModal(id) {
 
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
+  // Clean up transcode polling if closing film modal
+  if (id === 'film-modal') {
+    clearModalTranscode();
+  }
+}
+
+function clearModalTranscode() {
+  if (modalTranscodeInterval) {
+    clearInterval(modalTranscodeInterval);
+    modalTranscodeInterval = null;
+  }
+  modalTranscodeId = null;
+  modalVideoPath = null;
 }
 
 // Close modal on overlay click
 document.querySelectorAll('.modal-overlay').forEach(el => {
   el.addEventListener('click', (e) => {
-    if (e.target === el) el.classList.add('hidden');
+    if (e.target === el) {
+      if (el.id === 'film-modal') clearModalTranscode();
+      el.classList.add('hidden');
+    }
   });
 });
 
@@ -43,250 +61,175 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   window.location.href = '/login';
 });
 
-// ---- Transcode Polling ----
-function pollTranscode(jobId, filename) {
-  activeTranscodes.set(jobId, { filename, status: 'queued', progress: 0 });
-  renderTranscodeStatus();
-
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(`/api/transcode/${jobId}`);
-      const job = await res.json();
-      activeTranscodes.set(jobId, { filename, ...job });
-      renderTranscodeStatus();
-
-      if (job.status === 'done') {
-        clearInterval(interval);
-        toast(`Transcode complete: ${filename}`);
-        setTimeout(() => {
-          activeTranscodes.delete(jobId);
-          renderTranscodeStatus();
-        }, 3000);
-        loadVideoFiles();
-        loadThumbFiles(); // Reload thumbs to pick up auto-generated thumbnail
-      } else if (job.status === 'error') {
-        clearInterval(interval);
-        toast(`Transcode failed: ${job.error}`);
-        setTimeout(() => {
-          activeTranscodes.delete(jobId);
-          renderTranscodeStatus();
-        }, 5000);
-      }
-    } catch (e) {
-      clearInterval(interval);
-    }
-  }, 2000);
-}
-
-function renderTranscodeStatus() {
-  const el = document.getElementById('transcode-status');
-  if (!el) return;
-
-  if (activeTranscodes.size === 0) {
-    el.innerHTML = '';
-    return;
-  }
-
-  el.innerHTML = Array.from(activeTranscodes.entries()).map(([id, job]) => {
-    const statusText = job.status === 'done' ? 'COMPLETE'
-      : job.status === 'error' ? 'FAILED'
-      : job.status === 'generating_thumbnail' ? 'GENERATING THUMBNAIL'
-      : job.status === 'transcoding' ? `TRANSCODING ${job.progress || 0}%`
-      : job.status === 'probing' ? 'ANALYZING'
-      : 'QUEUED';
-
-    const statusClass = job.status === 'done' ? 'status-active'
-      : job.status === 'error' ? 'status-inactive'
-      : '';
-
-    return `
-      <div class="transcode-job">
-        <div class="transcode-job-name">${job.filename}</div>
-        <div class="transcode-job-status">
-          <span class="${statusClass}">${statusText}</span>
-        </div>
-        ${job.status === 'transcoding' ? `
-          <div class="upload-progress-bar" style="margin-top:6px">
-            <div class="upload-progress-filled" style="width:${job.progress || 0}%"></div>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-// ---- File Upload ----
-function setupUpload(zoneId, inputId, progressId, filledId, textId, endpoint, onDone) {
-  const zone = document.getElementById(zoneId);
-  const input = document.getElementById(inputId);
-  const progressWrap = document.getElementById(progressId);
-  const filled = document.getElementById(filledId);
-  const text = document.getElementById(textId);
-
-  zone.addEventListener('click', () => input.click());
-
-  zone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    zone.classList.add('dragover');
-  });
-  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    zone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
-  });
-
-  input.addEventListener('change', () => {
-    if (input.files.length) uploadFile(input.files[0]);
-  });
-
-  function uploadFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', endpoint);
-
-    progressWrap.style.display = 'block';
-    filled.style.width = '0%';
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const pct = Math.round((e.loaded / e.total) * 100);
-        filled.style.width = pct + '%';
-        const sizeMB = (e.loaded / 1024 / 1024).toFixed(1);
-        const totalMB = (e.total / 1024 / 1024).toFixed(1);
-        text.textContent = `Uploading: ${sizeMB} MB / ${totalMB} MB  (${pct}%)`;
-      }
-    });
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        const data = JSON.parse(xhr.responseText);
-
-        if (data.transcodeId) {
-          // Video upload — show transcode progress
-          text.textContent = `Upload complete — transcoding to H.264/AAC...`;
-          filled.style.width = '100%';
-          pollTranscode(data.transcodeId, data.filename);
-          setTimeout(() => { progressWrap.style.display = 'none'; }, 2000);
-        } else {
-          toast(`Uploaded: ${data.filename}`);
-          setTimeout(() => { progressWrap.style.display = 'none'; }, 1500);
-        }
-        onDone();
-      } else {
-        toast('Upload failed');
-        setTimeout(() => { progressWrap.style.display = 'none'; }, 1500);
-      }
-      input.value = '';
-    });
-
-    xhr.addEventListener('error', () => {
-      toast('Upload failed');
-      progressWrap.style.display = 'none';
-      input.value = '';
-    });
-
-    xhr.send(formData);
-  }
-}
-
-setupUpload(
-  'video-upload-zone', 'video-file-input',
-  'video-upload-progress', 'video-progress-filled', 'video-progress-text',
-  '/api/upload/video', loadVideoFiles
-);
-
-setupUpload(
-  'thumb-upload-zone', 'thumb-file-input',
-  'thumb-upload-progress', 'thumb-progress-filled', 'thumb-progress-text',
-  '/api/upload/thumb', loadThumbFiles
-);
-
-// ---- Load Files ----
-async function loadVideoFiles() {
-  const res = await fetch('/api/files/videos');
-  videoFiles = await res.json();
-  renderVideoFileList();
-  populateVideoSelects();
-}
-
-async function loadThumbFiles() {
-  const res = await fetch('/api/files/thumbs');
-  thumbFiles = await res.json();
-  renderThumbFileList();
-  populateThumbSelects();
-}
-
+// ---- Helpers ----
 function formatSize(bytes) {
   if (bytes > 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB';
   if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(0) + ' MB';
   return (bytes / 1024).toFixed(0) + ' KB';
 }
 
-function renderVideoFileList() {
-  const el = document.getElementById('video-file-list');
-  el.innerHTML = videoFiles.map(f =>
-    `<div class="file-chip">${f.name} (${formatSize(f.size)})</div>`
-  ).join('');
+function titleFromFilename(filename) {
+  return filename
+    .replace(/\.[^.]+$/, '')         // strip extension
+    .replace(/[-_]+/g, ' ')          // dashes/underscores → spaces
+    .replace(/\b\w/g, c => c.toUpperCase()); // title case
 }
 
-function renderThumbFileList() {
-  const el = document.getElementById('thumb-file-list');
-  el.innerHTML = thumbFiles.map(f =>
-    `<div class="file-chip">${f.name} (${formatSize(f.size)})</div>`
-  ).join('');
+// ---- Film Modal: Video Upload ----
+const filmVideoBtn = document.getElementById('film-video-btn');
+const filmVideoInput = document.getElementById('film-video-input');
+const filmVideoName = document.getElementById('film-video-name');
+const filmProgressWrap = document.getElementById('film-upload-progress');
+const filmProgressFilled = document.getElementById('film-progress-filled');
+const filmProgressText = document.getElementById('film-progress-text');
+const filmSubmitBtn = document.getElementById('film-submit-btn');
+
+filmVideoBtn.addEventListener('click', () => {
+  filmVideoInput.click();
+});
+
+filmVideoInput.addEventListener('change', () => {
+  if (filmVideoInput.files.length) {
+    uploadVideoInModal(filmVideoInput.files[0]);
+  }
+});
+
+function uploadVideoInModal(file) {
+  // Reset any previous state
+  clearModalTranscode();
+
+  filmVideoName.textContent = file.name;
+  filmVideoBtn.textContent = 'Change video...';
+  filmProgressWrap.style.display = 'block';
+  filmProgressFilled.style.width = '0%';
+  filmProgressText.textContent = 'Uploading...';
+  filmSubmitBtn.disabled = true;
+
+  // Auto-populate title if empty
+  const titleField = document.getElementById('film-title');
+  if (!titleField.value.trim()) {
+    titleField.value = titleFromFilename(file.name);
+    titleField.dispatchEvent(new Event('input')); // trigger slug auto-gen
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload/video');
+
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      filmProgressFilled.style.width = pct + '%';
+      const sizeMB = (e.loaded / 1024 / 1024).toFixed(1);
+      const totalMB = (e.total / 1024 / 1024).toFixed(1);
+      filmProgressText.textContent = `Uploading ${sizeMB} MB / ${totalMB} MB  (${pct}%)`;
+    }
+  });
+
+  xhr.addEventListener('load', () => {
+    if (xhr.status === 200) {
+      const data = JSON.parse(xhr.responseText);
+      if (data.transcodeId) {
+        filmProgressFilled.style.width = '100%';
+        filmProgressText.textContent = 'Upload complete — transcoding...';
+        pollModalTranscode(data.transcodeId, data.filename);
+      }
+    } else {
+      toast('Upload failed');
+      filmProgressWrap.style.display = 'none';
+      filmSubmitBtn.disabled = false;
+    }
+    filmVideoInput.value = '';
+  });
+
+  xhr.addEventListener('error', () => {
+    toast('Upload failed');
+    filmProgressWrap.style.display = 'none';
+    filmSubmitBtn.disabled = false;
+    filmVideoInput.value = '';
+  });
+
+  xhr.send(formData);
+}
+
+function pollModalTranscode(jobId, filename) {
+  modalTranscodeId = jobId;
+
+  modalTranscodeInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/transcode/${jobId}`);
+      const job = await res.json();
+
+      if (job.status === 'done') {
+        clearInterval(modalTranscodeInterval);
+        modalTranscodeInterval = null;
+
+        // Get the output path from the job
+        const videoName = filename.replace(/\.[^.]+$/, '') + '.mp4';
+        modalVideoPath = `/assets/videos/${videoName}`;
+        document.getElementById('film-video-path').value = modalVideoPath;
+
+        filmProgressFilled.style.width = '100%';
+        filmProgressFilled.classList.add('progress-done');
+        filmProgressText.textContent = 'Ready';
+        filmSubmitBtn.disabled = false;
+
+        // Reload files so thumb is available
+        loadVideoFiles();
+        loadThumbFiles();
+
+        toast(`Transcode complete: ${filename}`);
+
+      } else if (job.status === 'error') {
+        clearInterval(modalTranscodeInterval);
+        modalTranscodeInterval = null;
+        filmProgressText.textContent = `Transcode failed: ${job.error}`;
+        filmProgressFilled.classList.add('progress-error');
+        filmSubmitBtn.disabled = false; // allow retry/cancel
+        toast(`Transcode failed: ${job.error}`);
+
+      } else {
+        // In progress
+        const statusText = job.status === 'generating_thumbnail' ? 'Generating thumbnail...'
+          : job.status === 'transcoding' ? `Transcoding ${job.progress || 0}%`
+          : job.status === 'probing' ? 'Analysing...'
+          : 'Queued...';
+
+        filmProgressText.textContent = statusText;
+
+        if (job.status === 'transcoding' && job.progress) {
+          filmProgressFilled.style.width = job.progress + '%';
+        }
+      }
+    } catch (e) {
+      clearInterval(modalTranscodeInterval);
+      modalTranscodeInterval = null;
+    }
+  }, 2000);
+}
+
+// ---- Load Files (for projects dropdown + thumb resolution) ----
+async function loadVideoFiles() {
+  const res = await fetch('/api/files/videos');
+  videoFiles = await res.json();
+  populateVideoSelects();
+}
+
+async function loadThumbFiles() {
+  const res = await fetch('/api/files/thumbs');
+  thumbFiles = await res.json();
 }
 
 function populateVideoSelects() {
-  document.querySelectorAll('#film-video, #project-video').forEach(sel => {
-    const val = sel.value;
-    sel.innerHTML = '<option value="">Select video...</option>' +
-      videoFiles.map(f => `<option value="${f.path}">${f.name} (${formatSize(f.size)})</option>`).join('');
-    sel.value = val;
-  });
-}
-
-function populateThumbSelects() {
-  const sel = document.getElementById('film-thumb');
+  // Only project-video uses a dropdown now
+  const sel = document.getElementById('project-video');
   if (!sel) return;
   const val = sel.value;
-  sel.innerHTML = '<option value="">Auto-generated thumbnail</option>' +
-    thumbFiles.map(f => `<option value="${f.path}">${f.name} (${formatSize(f.size)})</option>`).join('');
+  sel.innerHTML = '<option value="">Select video...</option>' +
+    videoFiles.map(f => `<option value="${f.path}">${f.name} (${formatSize(f.size)})</option>`).join('');
   sel.value = val;
-}
-
-// Show/hide thumbnail preview when video or thumb selection changes
-function updateThumbPreview() {
-  const videoSel = document.getElementById('film-video');
-  const thumbSel = document.getElementById('film-thumb');
-  const preview = document.getElementById('thumb-preview');
-  const previewImg = document.getElementById('thumb-preview-img');
-  const previewLabel = document.querySelector('.thumb-preview-label');
-  if (!preview) return;
-
-  // If user explicitly chose a thumbnail, show that
-  if (thumbSel.value) {
-    preview.style.display = 'block';
-    previewImg.src = thumbSel.value;
-    previewLabel.textContent = 'Manual thumbnail selected';
-    return;
-  }
-
-  // Otherwise try to show the auto-generated one matching the video
-  if (videoSel.value) {
-    const videoName = videoSel.value.split('/').pop().replace(/\.[^.]+$/, '');
-    const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
-    if (autoThumb) {
-      preview.style.display = 'block';
-      previewImg.src = autoThumb.path;
-      previewLabel.textContent = 'Auto-generated — change above to override';
-      return;
-    }
-  }
-
-  preview.style.display = 'none';
 }
 
 // ---- Films ----
@@ -312,7 +255,7 @@ async function loadFilms() {
             <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:1px">${f.category}</td>
             <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${f.year}</td>
             <td>
-              <span class="${f.public ? 'status-active' : 'status-inactive'}">${f.public ? 'PUBLIC' : 'HIDDEN'}</span>
+              <span class="${f.public ? 'status-active' : 'status-inactive'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
             </td>
             <td style="text-align:right">
               <button class="btn btn-sm" onclick="editFilm('${f.slug}')">Edit</button>
@@ -326,20 +269,37 @@ async function loadFilms() {
   `;
 }
 
+// ---- Add Film (+ button) ----
 document.getElementById('btn-add-film').addEventListener('click', () => {
+  // Reset form
   document.getElementById('film-form').reset();
   document.getElementById('film-edit-slug').value = '';
+  document.getElementById('film-video-path').value = '';
   document.getElementById('film-modal-title').textContent = 'Add Film';
-  document.getElementById('film-submit-btn').textContent = 'Save Film';
+  document.getElementById('film-submit-btn').textContent = 'Add Film';
+  document.getElementById('film-submit-btn').disabled = true;
   document.getElementById('film-slug').disabled = false;
   document.getElementById('film-year').value = new Date().getFullYear();
   delete document.getElementById('film-slug').dataset.manual;
-  populateVideoSelects();
-  populateThumbSelects();
-  updateThumbPreview();
+
+  // Reset video picker
+  filmVideoBtn.textContent = 'Choose video file...';
+  filmVideoName.textContent = '';
+  filmProgressWrap.style.display = 'none';
+  filmProgressFilled.style.width = '0%';
+  filmProgressFilled.classList.remove('progress-done', 'progress-error');
+
+  // Reset thumb preview
+  document.getElementById('thumb-preview').style.display = 'none';
+
+  // Reset visibility to public
+  document.querySelector('input[name="film-visibility"][value="public"]').checked = true;
+
+  clearModalTranscode();
   openModal('film-modal');
 });
 
+// ---- Edit Film ----
 async function editFilm(slug) {
   const res = await fetch('/api/films');
   const films = await res.json();
@@ -349,6 +309,7 @@ async function editFilm(slug) {
   document.getElementById('film-edit-slug').value = slug;
   document.getElementById('film-modal-title').textContent = 'Edit Film';
   document.getElementById('film-submit-btn').textContent = 'Update Film';
+  document.getElementById('film-submit-btn').disabled = false;
   document.getElementById('film-title').value = film.title;
   document.getElementById('film-slug').value = film.slug;
   document.getElementById('film-slug').disabled = true;
@@ -357,20 +318,61 @@ async function editFilm(slug) {
   document.getElementById('film-year').value = film.year || new Date().getFullYear();
   document.getElementById('film-description').value = film.description || '';
 
-  populateVideoSelects();
-  populateThumbSelects();
+  // Set video path
+  document.getElementById('film-video-path').value = film.video || '';
+  modalVideoPath = film.video || null;
 
-  // Set selected video/thumb after populating
-  document.getElementById('film-video').value = film.video || '';
-  document.getElementById('film-thumb').value = film.thumbnail || '';
+  // Show current video in picker
+  if (film.video) {
+    const videoName = film.video.split('/').pop();
+    filmVideoBtn.textContent = 'Change video...';
+    filmVideoName.textContent = videoName;
+  } else {
+    filmVideoBtn.textContent = 'Choose video file...';
+    filmVideoName.textContent = '';
+  }
 
-  updateThumbPreview();
+  // Reset progress
+  filmProgressWrap.style.display = 'none';
+  filmProgressFilled.style.width = '0%';
+  filmProgressFilled.classList.remove('progress-done', 'progress-error');
+
+  // Set visibility
+  const vis = film.public ? 'public' : 'client';
+  document.querySelector(`input[name="film-visibility"][value="${vis}"]`).checked = true;
+
+  // Show thumbnail preview if available
+  updateThumbPreview(film.video, film.thumbnail);
+
+  clearModalTranscode();
   openModal('film-modal');
 }
 
-// Update preview when video or thumbnail selection changes
-document.getElementById('film-video').addEventListener('change', updateThumbPreview);
-document.getElementById('film-thumb').addEventListener('change', updateThumbPreview);
+function updateThumbPreview(videoPath, thumbnailPath) {
+  const preview = document.getElementById('thumb-preview');
+  const previewImg = document.getElementById('thumb-preview-img');
+  if (!preview) return;
+
+  // Try manual thumbnail first
+  if (thumbnailPath) {
+    preview.style.display = 'block';
+    previewImg.src = thumbnailPath;
+    return;
+  }
+
+  // Try auto-generated
+  if (videoPath) {
+    const videoName = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
+    const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
+    if (autoThumb) {
+      preview.style.display = 'block';
+      previewImg.src = autoThumb.path;
+      return;
+    }
+  }
+
+  preview.style.display = 'none';
+}
 
 // Auto-generate slug from title
 document.getElementById('film-title').addEventListener('input', (e) => {
@@ -387,30 +389,32 @@ document.getElementById('film-slug').addEventListener('input', function() {
   this.dataset.manual = '1';
 });
 
+// ---- Film Form Submit ----
 document.getElementById('film-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  // Resolve thumbnail: manual choice > auto-generated > empty
-  let thumbnail = document.getElementById('film-thumb').value;
-  if (!thumbnail) {
-    const videoPath = document.getElementById('film-video').value;
-    if (videoPath) {
-      const videoName = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
-      const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
-      if (autoThumb) thumbnail = autoThumb.path;
-    }
+  const videoPath = document.getElementById('film-video-path').value || modalVideoPath;
+
+  // Resolve thumbnail: auto-generated from video
+  let thumbnail = '';
+  if (videoPath) {
+    const videoName = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
+    const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
+    if (autoThumb) thumbnail = autoThumb.path;
   }
 
   const editSlug = document.getElementById('film-edit-slug').value;
   const isEdit = !!editSlug;
+  const isPublic = document.querySelector('input[name="film-visibility"]:checked').value === 'public';
 
   const data = {
     title: document.getElementById('film-title').value,
     category: document.getElementById('film-category').value,
     year: document.getElementById('film-year').value,
     description: document.getElementById('film-description').value,
-    video: document.getElementById('film-video').value,
+    video: videoPath,
     thumbnail,
+    public: isPublic,
   };
 
   if (!isEdit) {

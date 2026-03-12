@@ -21,7 +21,6 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="films">// Films</button>
     <button class="admin-tab" data-tab="projects">// Client Projects</button>
-    <button class="admin-tab" data-tab="upload">// Upload</button>
   </div>
 
   <!-- FILMS TAB -->
@@ -29,7 +28,7 @@
     <div id="tab-films" class="tab-panel active">
       <div class="section-head">
         <h2>Public Films</h2>
-        <button class="btn" id="btn-add-film">+ Add Film</button>
+        <button class="btn-add-circle" id="btn-add-film" title="Add Film">+</button>
       </div>
       <div id="films-list"></div>
     </div>
@@ -42,38 +41,6 @@
       </div>
       <div id="projects-list"></div>
     </div>
-
-    <!-- UPLOAD TAB -->
-    <div id="tab-upload" class="tab-panel">
-      <div class="section-head">
-        <h2>Upload Files</h2>
-      </div>
-
-      <h3 style="font-weight:300;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:16px;">Videos</h3>
-      <div class="upload-zone" id="video-upload-zone">
-        <p>Drop video file here or click to browse</p>
-        <input type="file" id="video-file-input" accept="video/*">
-      </div>
-      <div id="video-upload-progress" class="upload-progress" style="display:none">
-        <div class="upload-progress-bar"><div id="video-progress-filled" class="upload-progress-filled"></div></div>
-        <p id="video-progress-text" class="upload-progress-text"></p>
-      </div>
-      <div id="transcode-status" class="transcode-list"></div>
-      <div id="video-file-list" class="file-list"></div>
-
-      <div style="margin-top:40px;">
-        <h3 style="font-weight:300;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:16px;">Thumbnails</h3>
-        <div class="upload-zone" id="thumb-upload-zone">
-          <p>Drop thumbnail image here or click to browse</p>
-          <input type="file" id="thumb-file-input" accept="image/*">
-        </div>
-        <div id="thumb-upload-progress" class="upload-progress" style="display:none">
-          <div class="upload-progress-bar"><div id="thumb-progress-filled" class="upload-progress-filled"></div></div>
-          <p id="thumb-progress-text" class="upload-progress-text"></p>
-        </div>
-        <div id="thumb-file-list" class="file-list"></div>
-      </div>
-    </div>
   </div>
 
   <!-- FILM MODAL (Add / Edit) -->
@@ -82,6 +49,24 @@
       <h3 id="film-modal-title">Add Film</h3>
       <input type="hidden" id="film-edit-slug">
       <form id="film-form">
+
+        <!-- Video file upload -->
+        <div class="form-group">
+          <label>Video File</label>
+          <div id="film-video-picker" class="video-picker">
+            <input type="file" id="film-video-input" accept="video/*" style="display:none">
+            <button type="button" id="film-video-btn" class="video-picker-btn">Choose video file...</button>
+            <span id="film-video-name" class="video-picker-name"></span>
+          </div>
+          <!-- Upload + transcode progress (hidden until active) -->
+          <div id="film-upload-progress" class="modal-progress" style="display:none">
+            <div class="upload-progress-bar"><div id="film-progress-filled" class="upload-progress-filled"></div></div>
+            <p id="film-progress-text" class="upload-progress-text"></p>
+          </div>
+          <!-- For edit mode: show current video -->
+          <input type="hidden" id="film-video-path">
+        </div>
+
         <div class="form-group">
           <label>Title</label>
           <input type="text" id="film-title" required>
@@ -106,27 +91,36 @@
         </div>
         <div class="form-group">
           <label>Year</label>
-          <input type="number" id="film-year" value="2024">
+          <input type="number" id="film-year" value="2026">
         </div>
         <div class="form-group">
           <label>Description</label>
           <textarea id="film-description"></textarea>
         </div>
         <div class="form-group">
-          <label>Video File</label>
-          <select id="film-video"><option value="">Select video...</option></select>
+          <label>Visibility</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="film-visibility" value="public" checked>
+              <span>Public</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="film-visibility" value="client">
+              <span>Client</span>
+            </label>
+          </div>
         </div>
         <div class="form-group">
           <label>Thumbnail</label>
-          <select id="film-thumb"><option value="">Select thumbnail...</option></select>
           <div id="thumb-preview" class="thumb-preview" style="display:none">
             <img id="thumb-preview-img" src="" alt="Thumbnail preview">
-            <span class="thumb-preview-label">Auto-generated — change above to override</span>
+            <span class="thumb-preview-label">Auto-generated from video</span>
           </div>
+          <p class="form-hint">Auto-generated from video at 25%</p>
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-danger" onclick="closeModal('film-modal')">Cancel</button>
-          <button type="submit" class="btn" id="film-submit-btn">Save Film</button>
+          <button type="submit" class="btn" id="film-submit-btn" disabled>Add Film</button>
         </div>
       </form>
     </div>
