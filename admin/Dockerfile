@@ -1,6 +1,8 @@
 FROM node:20-bookworm-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Enable non-free for Intel media driver, install ffmpeg + QSV deps
+RUN echo "deb http://deb.debian.org/debian bookworm non-free non-free-firmware" >> /etc/apt/sources.list.d/non-free.list \
+  && apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     intel-media-va-driver-non-free \
     vainfo \
