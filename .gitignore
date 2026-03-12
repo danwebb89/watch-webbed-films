@@ -16,7 +16,7 @@ node_modules/
 
 # Exception: keep site assets (logo, background video etc.)
 !public/assets/images/**
-!public/assets/video/Website Background.mp4
+!public/assets/video/noise background.mp4
 
 # Audio files
 *.mp3

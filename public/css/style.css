@@ -255,6 +255,7 @@ a {
   padding: 48px;
   max-width: 1400px;
   margin: 0 auto;
+  flex: 1;
 }
 
 .film-card {
@@ -327,6 +328,7 @@ a {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 48px 80px;
+  flex: 1;
 }
 
 .watch-title {
@@ -581,7 +583,7 @@ a {
 /* ---- CLIENT ACCESS ---- */
 
 .clients-body {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -653,6 +655,8 @@ a {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .site-footer .footer-bottom {
