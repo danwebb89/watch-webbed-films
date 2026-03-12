@@ -2,8 +2,7 @@ services:
   watch-webbed-films:
     build: ./admin
     container_name: watch-webbed-films
-    ports:
-      - "3500:3500"
+    network_mode: host
     volumes:
       # Video storage (persistent, on array)
       - /mnt/user/watch:/videos
