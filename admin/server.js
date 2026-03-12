@@ -601,6 +601,28 @@ app.post('/api/films', requireAuth, (req, res) => {
   res.json(film);
 });
 
+// Regenerate thumbnail options for an existing film
+app.post('/api/films/:slug/regenerate-thumbs', requireAuth, async (req, res) => {
+  const film = db.filmBySlug(req.params.slug);
+  if (!film) return res.status(404).json({ error: 'Not found' });
+  if (!film.video) return res.status(400).json({ error: 'No video path' });
+
+  const videoFile = path.basename(film.video);
+  const videoPath = path.join(VIDEO_DIR, videoFile);
+  if (!fs.existsSync(videoPath)) return res.status(400).json({ error: 'Video file not found on disk' });
+
+  const thumbName = path.parse(videoFile).name + '_thumb.jpg';
+  const result = await generateThumbnail(videoPath, thumbName);
+
+  if (result && typeof result === 'object') {
+    // Update film thumbnail to the best pick
+    db.updateFilm(req.params.slug, { thumbnail: result.selected });
+    res.json({ thumbnail: result.selected, options: result.options });
+  } else {
+    res.status(500).json({ error: 'Failed to generate thumbnails' });
+  }
+});
+
 app.put('/api/films/:slug', requireAuth, (req, res) => {
   const film = db.updateFilm(req.params.slug, req.body);
   if (!film) return res.status(404).json({ error: 'Not found' });
