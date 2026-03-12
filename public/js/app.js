@@ -205,6 +205,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ---- Scroll-in observer ----
   function observeCards() {
+    const cards = grid.querySelectorAll('.portfolio-card');
+
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach(c => c.classList.add('is-visible'));
+      return;
+    }
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -212,8 +219,21 @@ document.addEventListener('DOMContentLoaded', async () => {
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.1 });
-    grid.querySelectorAll('.portfolio-card').forEach(card => observer.observe(card));
+    }, { threshold: 0.05, rootMargin: '200px' });
+
+    // Observe after layout settles
+    requestAnimationFrame(() => {
+      cards.forEach(card => observer.observe(card));
+    });
+
+    // Fallback: if cards still invisible after 1.5s, force them visible
+    setTimeout(() => {
+      cards.forEach(card => {
+        if (!card.classList.contains('is-visible')) {
+          card.classList.add('is-visible');
+        }
+      });
+    }, 1500);
   }
 
   // ---- Password modal ----
