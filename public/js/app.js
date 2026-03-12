@@ -97,9 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const title = document.getElementById('hover-title');
     const sub = document.getElementById('hover-subtitle');
     if (cat) {
-      let catText = film.category || '';
-      if (catText.endsWith(' Films')) catText = catText.replace(/ Films$/, ' Film');
-      cat.textContent = catText;
+      cat.textContent = 'Film of the Day';
       cat.style.color = '#c8a96e';
     }
     if (title) title.textContent = film.title;
@@ -206,25 +204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) { /* hero is optional */ }
 
-  // ---- Card hover → monitor preview ----
-  let monitorTimeout = null;
-
-  function hoverCard(film) {
-    clearTimeout(monitorTimeout);
-    showInMonitor(film);
-    const canvas = document.getElementById('monitor-canvas');
-    if (canvas) canvas.style.opacity = '0.02';
-  }
-
-  function leaveCard() {
-    monitorTimeout = setTimeout(() => {
-      if (featuredFilm && featuredFilm.thumbnail) {
-        showInMonitor(featuredFilm);
-      } else {
-        clearMonitor();
-      }
-    }, 600);
-  }
+  // ---- Card hover (no monitor change — keep Film of the Day locked) ----
 
   // ---- Session unlock helpers ----
   function isUnlocked(slug) {
@@ -274,9 +254,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     grid.querySelectorAll('.browse-card').forEach(card => {
       const slug = card.dataset.slug;
       const film = films.find(f => f.slug === slug);
-
-      card.addEventListener('mouseenter', () => { if (film) hoverCard(film); });
-      card.addEventListener('mouseleave', leaveCard);
 
       card.addEventListener('click', (e) => {
         e.preventDefault();
@@ -496,8 +473,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         clip.addEventListener('click', () => {
           window.location.href = `/watch.html?film=${film.slug}`;
         });
-        clip.addEventListener('mouseenter', () => hoverCard(film));
-        clip.addEventListener('mouseleave', leaveCard);
         lane.appendChild(clip);
       });
 
