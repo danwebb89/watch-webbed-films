@@ -13,6 +13,8 @@ services:
       - /mnt/user/appdata/watch-webbed-films/public:/public-site:ro
       - /mnt/user/appdata/watch-webbed-films/admin/public:/app/public:ro
       - /mnt/user/appdata/watch-webbed-films/admin/server.js:/app/server.js:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/db.js:/app/db.js:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/migrate.js:/app/migrate.js:ro
     environment:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - VIDEO_DIR=/videos
