@@ -206,22 +206,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---- Scroll-in observer ----
   function observeCards() {
     const cards = grid.querySelectorAll('.portfolio-card');
-    console.log('[WF] observeCards: found', cards.length, 'cards');
 
-    // Force visible immediately — debug
-    cards.forEach(c => {
-      c.classList.add('is-visible');
-      c.style.opacity = '1';
-      c.style.transform = 'none';
-      c.style.border = '3px solid red';
-      c.style.minHeight = '200px';
-      c.style.background = 'rgba(255,0,0,0.3)';
+    if (!('IntersectionObserver' in window)) {
+      cards.forEach(c => c.classList.add('is-visible'));
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.05, rootMargin: '200px' });
+
+    requestAnimationFrame(() => {
+      cards.forEach(card => observer.observe(card));
     });
-    // Also debug the grid itself
-    grid.style.border = '3px solid lime';
-    grid.style.minHeight = '300px';
-    console.log('[WF] Forced all cards visible, grid rect:', grid.getBoundingClientRect());
-    cards.forEach((c, i) => console.log('[WF] Card', i, 'rect:', c.getBoundingClientRect()));
+
+    // Fallback: force visible after 1.5s
+    setTimeout(() => {
+      cards.forEach(card => {
+        if (!card.classList.contains('is-visible')) {
+          card.classList.add('is-visible');
+        }
+      });
+    }, 1500);
   }
 
   // ---- Password modal ----
@@ -307,14 +318,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ---- Load films ----
   try {
-    console.log('[WF] Fetching films...');
     const res = await fetch('/api/public/films');
     allFilms = await res.json();
-    console.log('[WF] Got', allFilms.length, 'films:', allFilms.map(f => f.title));
     renderFilms(allFilms);
-    console.log('[WF] renderFilms done, grid children:', grid.children.length);
   } catch (e) {
-    console.error('[WF] Film load error:', e);
     grid.innerHTML = '<div class="empty-state"><p>// Unable to load films</p></div>';
     grid.className = '';
     return;

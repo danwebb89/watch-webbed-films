@@ -476,16 +476,15 @@ a {
 }
 
 .portfolio-grid {
-  columns: 3;
-  column-gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
 }
 
 .portfolio-card {
   position: relative;
   display: block;
   cursor: pointer;
-  break-inside: avoid;
-  margin-bottom: 6px;
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.5s ease, transform 0.5s ease;
@@ -499,7 +498,7 @@ a {
   transform: translateY(0);
 }
 
-/* Stagger by column position */
+/* Stagger animation */
 .portfolio-card:nth-child(3n + 1) { transition-delay: 0s; }
 .portfolio-card:nth-child(3n + 2) { transition-delay: 0.08s; }
 .portfolio-card:nth-child(3n)     { transition-delay: 0.16s; }
@@ -513,15 +512,6 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Every 5th card: portrait/taller */
-.portfolio-card:nth-child(5n) .card-thumb {
-  padding-top: 75%;
-}
-
-/* Every 7th card: cinematic/wider */
-.portfolio-card:nth-child(7n) .card-thumb {
-  padding-top: 45%;
-}
 
 .card-thumb img {
   position: absolute;
@@ -1282,7 +1272,7 @@ a {
 /* ---- RESPONSIVE ---- */
 
 @media (max-width: 900px) {
-  .portfolio-grid { columns: 2; }
+  .portfolio-grid { grid-template-columns: repeat(2, 1fr); }
   .work-title { font-size: 52px; }
 }
 
@@ -1302,7 +1292,7 @@ a {
     font-size: 10px;
   }
   .portfolio-grid {
-    columns: 1;
+    grid-template-columns: 1fr;
   }
   .portfolio-section {
     padding: 0 16px 60px;
