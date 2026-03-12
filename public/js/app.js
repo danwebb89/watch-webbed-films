@@ -228,7 +228,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           <img src="${film.thumbnail}" alt="${film.title}" loading="lazy">
         </div>
         <div class="browse-overlay">
-          <span class="browse-overlay-cat">${film.category || ''} — ${film.year || ''}</span>
           <span class="browse-overlay-title">${film.title}</span>
           ${cta}
         </div>
