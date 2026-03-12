@@ -282,30 +282,52 @@ async function loadFilms() {
     return;
   }
 
+  const publicCount = films.filter(f => f.public).length;
+  const clientCount = films.filter(f => !f.public).length;
+  const catCount = new Set(films.map(f => f.category).filter(Boolean)).size;
+
   el.innerHTML = `
-    <table class="data-table">
-      <thead><tr>
-        <th>Title</th><th>Category</th><th>Year</th><th>Status</th><th></th>
-      </tr></thead>
-      <tbody>
-        ${films.map(f => `
-          <tr>
-            <td>${f.title}</td>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted);letter-spacing:1px">${f.category}</td>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${f.year}</td>
-            <td>
-              <span class="${f.public ? 'status-active' : 'status-inactive'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
-              ${f.password_hash ? '<span class="status-locked">LOCKED</span>' : ''}
-            </td>
-            <td style="text-align:right">
-              <button class="btn btn-sm" onclick="editFilm('${f.slug}')">Edit</button>
-              <button class="btn btn-sm" onclick="toggleFilm('${f.slug}', ${!f.public})">${f.public ? 'Hide' : 'Show'}</button>
-              <button class="btn btn-sm btn-danger" onclick="deleteFilm('${f.slug}')">Delete</button>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+    <div class="admin-stats">
+      <div class="stat-item">
+        <span class="stat-value">${films.length}</span>
+        <span class="stat-label">// Total</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">${publicCount}</span>
+        <span class="stat-label">// Public</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">${clientCount}</span>
+        <span class="stat-label">// Client</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">${catCount}</span>
+        <span class="stat-label">// Categories</span>
+      </div>
+    </div>
+    <div class="admin-film-grid">
+      ${films.map(f => `
+        <div class="admin-film-card" onclick="editFilm('${f.slug}')">
+          <div class="admin-card-thumb">
+            ${f.thumbnail ? `<img src="${f.thumbnail}" alt="${f.title}" loading="lazy" onerror="this.style.display='none'">` : ''}
+            <div class="admin-card-badges">
+              <span class="admin-badge ${f.public ? 'badge-public' : 'badge-client'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
+              ${f.password_hash ? '<span class="admin-badge badge-locked">LOCKED</span>' : ''}
+              ${f.eligible_for_featured ? '<span class="admin-badge badge-featured">FOTD</span>' : ''}
+            </div>
+          </div>
+          <div class="admin-card-info">
+            <div class="admin-card-title">${f.title}</div>
+            <div class="admin-card-meta">${f.category || 'Uncategorised'} — ${f.year}</div>
+          </div>
+          <div class="admin-card-actions">
+            <button class="btn btn-sm" onclick="event.stopPropagation(); editFilm('${f.slug}')">Edit</button>
+            <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFilm('${f.slug}', ${!f.public})">${f.public ? 'Hide' : 'Show'}</button>
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteFilm('${f.slug}')">Delete</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
   `;
 }
 

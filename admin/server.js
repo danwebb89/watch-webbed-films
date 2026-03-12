@@ -580,12 +580,15 @@ function loginPage() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — Watch Admin</title>
+  <link rel="icon" type="image/png" href="/assets/images/logo.png">
   <link rel="stylesheet" href="/admin-assets/css/admin.css">
 </head>
 <body>
   <div class="login-page">
+    <div class="login-scanlines"></div>
+    <div class="login-vignette"></div>
     <div class="login-box">
-      <div class="wordmark">WEBBED<span class="accent">FILMS</span></div>
+      <img src="/assets/images/logo.png" alt="Webbed Films" class="login-logo">
       <p class="login-label">// ADMIN ACCESS</p>
       <form id="login-form">
         <input type="password" id="password" placeholder="Password" autofocus>

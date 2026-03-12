@@ -12,11 +12,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Slug-to-name mapping
   const categories = {
-    'originals': 'Originals',
-    'documentary': 'Documentary',
-    'short-films': 'Short Films',
     'feature-films': 'Feature Films',
-    'corporate': 'Corporate'
+    'short-films': 'Short Films',
+    'media-zoo': 'Media Zoo',
+    'ratcliffe-studios': 'Ratcliffe Studios',
+    'revelstoke-films': 'Revelstoke Films',
+    'showreels': 'Showreels',
+    'trailers-and-bts': 'Trailers and BTS',
+    'webbed-films': 'Webbed Films'
   };
 
   const categoryName = categories[catSlug];
