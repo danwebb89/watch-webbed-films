@@ -14,11 +14,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.title = `${film.title} — Webbed Films`;
     document.getElementById('watch-title').textContent = film.title;
-    // Build meta line with duration and role
-    const metaParts = [`<span>${film.category}</span>`, `<span>${film.year}</span>`];
-    if (film.duration_minutes) metaParts.push(`<span>${film.duration_minutes} min</span>`);
+    // Singularize category (e.g. "Short Films" → "Short Film")
+    let category = film.category || '';
+    if (category.endsWith(' Films')) category = category.replace(/ Films$/, ' Film');
+    // Build meta line — duration added later from video metadata
+    const metaEl = document.getElementById('watch-meta');
+    const metaParts = [`<span>${category}</span>`, `<span>${film.year}</span>`];
     if (film.role_description) metaParts.push(`<span>${film.role_description}</span>`);
-    document.getElementById('watch-meta').innerHTML = metaParts.join('');
+    metaEl.innerHTML = metaParts.join('');
+
+    // Insert duration from video once metadata loads
+    function insertDuration(videoEl) {
+      videoEl.addEventListener('loadedmetadata', () => {
+        const secs = Math.round(videoEl.duration);
+        if (!secs || secs <= 0) return;
+        const mins = Math.floor(secs / 60);
+        const rem = secs % 60;
+        const durationText = mins > 0 ? `${mins} min ${rem > 0 ? rem + ' sec' : ''}`.trim() : `${rem} sec`;
+        const durationSpan = document.createElement('span');
+        durationSpan.textContent = durationText;
+        // Insert after category
+        const firstSpan = metaEl.querySelector('span');
+        if (firstSpan && firstSpan.nextSibling) {
+          metaEl.insertBefore(durationSpan, firstSpan.nextSibling);
+        } else {
+          metaEl.appendChild(durationSpan);
+        }
+      }, { once: true });
+    }
     document.getElementById('watch-description').textContent = film.description || '';
 
     // Show extended details
@@ -49,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
           if (vRes.ok) {
             const vData = await vRes.json();
-            loadVideo(vData.video);
+            loadVideo(vData.video, insertDuration);
             return;
           }
         } catch {}
@@ -57,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Not unlocked or token expired — show password gate
       showPasswordGate(slug, film);
     } else {
-      loadVideo(film.video);
+      loadVideo(film.video, insertDuration);
     }
   } catch (e) {
     document.querySelector('.watch-container').innerHTML =
@@ -135,7 +158,7 @@ function showPasswordGate(slug) {
             </div>
           </div>
         `;
-        loadVideo(data.video);
+        loadVideo(data.video, insertDuration);
       } else {
         errorEl.textContent = 'Wrong password';
       }
@@ -178,8 +201,9 @@ function showPasswordGate(slug) {
   });
 }
 
-function loadVideo(videoPath) {
+function loadVideo(videoPath, onMetaCallback) {
   const video = document.getElementById('video');
   video.src = videoPath;
+  if (onMetaCallback) onMetaCallback(video);
   initPlayer(document.getElementById('player-wrap'));
 }
