@@ -52,6 +52,12 @@ function clearModalTranscode() {
     bgTranscodeFilename = null;
     // Capture form data now so we can auto-save when transcode finishes
     bgFormData = captureFilmFormData();
+    // Save pending metadata server-side so auto-save works even if browser closes
+    fetch(`/api/transcode/${bgTranscodeId}/pending`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bgFormData)
+    }).catch(() => {});
     clearInterval(modalTranscodeInterval);
     modalTranscodeInterval = null;
     startBgTranscodePoll();
@@ -1169,7 +1175,61 @@ document.querySelectorAll('input[name="film-visibility"]').forEach(radio => {
   radio.addEventListener('change', (e) => updateVisibilityUI(e.target.value));
 });
 
+// ---- Global Transcode Status ----
+let globalTranscodeInterval = null;
+
+function startGlobalTranscodePoll() {
+  if (globalTranscodeInterval) return;
+  pollTranscodeStatus(); // immediate first check
+  globalTranscodeInterval = setInterval(pollTranscodeStatus, 3000);
+}
+
+async function pollTranscodeStatus() {
+  const el = document.getElementById('transcode-status');
+  try {
+    const res = await fetch('/api/transcode');
+    const jobs = await res.json();
+    const active = jobs.filter(j => j.status !== 'done' && j.status !== 'error');
+    const done = jobs.filter(j => j.status === 'done');
+
+    if (active.length === 0 && done.length === 0) {
+      el.innerHTML = '';
+      return;
+    }
+
+    let html = '';
+    for (const job of active) {
+      const name = job.input.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+      const statusText = job.status === 'generating_thumbnail' ? 'Generating thumbnails...'
+        : job.status === 'transcoding' ? `Transcoding ${job.progress || 0}%`
+        : job.status === 'probing' ? 'Analysing...'
+        : 'Queued...';
+      html += `
+        <div class="transcode-job">
+          <div class="transcode-job-name">${name}</div>
+          <div class="transcode-job-bar">
+            <div class="transcode-job-fill" style="width:${job.progress || 0}%"></div>
+          </div>
+          <div class="transcode-job-status">${statusText}</div>
+        </div>`;
+    }
+    for (const job of done) {
+      const name = job.input.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+      html += `
+        <div class="transcode-job transcode-done">
+          <div class="transcode-job-name">${name}</div>
+          <div class="transcode-job-status">Complete ✓</div>
+        </div>`;
+    }
+
+    el.innerHTML = `<div class="transcode-status-wrap"><h4 class="transcode-status-title">Active Transcodes</h4>${html}</div>`;
+  } catch {
+    // ignore
+  }
+}
+
 // ---- Init ----
 loadHomeStats();
 loadVideoFiles();
 loadThumbFiles();
+startGlobalTranscodePoll();

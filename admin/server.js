@@ -25,6 +25,8 @@ const CHUNKS_DIR = path.join(VIDEO_DIR, 'chunks');
 // ---- Transcode queue ----
 
 const transcodeJobs = new Map(); // id -> { status, progress, input, output, error }
+const PENDING_DIR = path.join(DATA_DIR, 'pending');
+fs.mkdirSync(PENDING_DIR, { recursive: true });
 
 function probeduration(filePath) {
   return new Promise((resolve) => {
@@ -50,13 +52,15 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
   job.status = 'transcoding';
   job.duration = duration;
 
+  // Intel QuickSync HEVC hardware encoding (i7-10700K)
   const args = [
+    '-hwaccel', 'qsv',
+    '-hwaccel_output_format', 'qsv',
     '-i', inputPath,
-    '-c:v', 'libx265',
+    '-c:v', 'hevc_qsv',
     '-preset', 'slow',
-    '-crf', '18',
+    '-global_quality', '20',
     '-tag:v', 'hvc1',
-    '-pix_fmt', 'yuv420p',
     '-c:a', 'aac',
     '-b:a', '192k',
     '-movflags', '+faststart',
@@ -109,6 +113,33 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
         }
       } catch (e) {
         console.log(`[Transcode] Warning: failed to delete original — ${e.message}`);
+      }
+
+      // Server-side auto-save: if pending film metadata exists, create the film now
+      const pendingFile = path.join(PENDING_DIR, jobId + '.json');
+      if (fs.existsSync(pendingFile)) {
+        try {
+          const pending = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
+          const videoPath = `/assets/videos/${job.output}`;
+          const thumbnail = job.thumbnail || '';
+          if (!db.filmBySlug(pending.slug)) {
+            db.createFilm({
+              slug: pending.slug,
+              title: pending.title,
+              category: pending.category || '',
+              year: parseInt(pending.year) || new Date().getFullYear(),
+              description: pending.description || '',
+              thumbnail,
+              video: videoPath,
+              public: pending.public !== false,
+              eligible_for_featured: !!pending.eligible_for_featured
+            });
+            console.log(`[AutoSave] Film "${pending.title}" saved to database`);
+          }
+          fs.unlinkSync(pendingFile);
+        } catch (e) {
+          console.log(`[AutoSave] Warning: failed to auto-save film — ${e.message}`);
+        }
       }
 
       job.status = 'done';
@@ -535,6 +566,16 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
   }
 });
 
+// Save pending film metadata for server-side auto-save after transcode
+app.post('/api/transcode/:id/pending', requireAuth, (req, res) => {
+  const job = transcodeJobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  const pendingFile = path.join(PENDING_DIR, req.params.id + '.json');
+  fs.writeFileSync(pendingFile, JSON.stringify(req.body));
+  console.log(`[Pending] Saved metadata for transcode ${req.params.id}: "${req.body.title}"`);
+  res.json({ ok: true });
+});
+
 // Transcode status
 app.get('/api/transcode/:id', requireAuth, (req, res) => {
   const job = transcodeJobs.get(req.params.id);
@@ -784,6 +825,21 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Watch Admin] Running on port ${PORT}`);
   console.log(`[Watch Admin] VIDEO_DIR: ${VIDEO_DIR}`);
   console.log(`[Watch Admin] DATA_DIR: ${DATA_DIR}`);
+
+  // Cleanup: delete originals that have a matching transcoded file
+  try {
+    const originals = fs.readdirSync(ORIGINALS_DIR).filter(f => !f.startsWith('.'));
+    const transcoded = fs.readdirSync(VIDEO_DIR).filter(f => f.endsWith('.mp4') && !f.startsWith('.'));
+    for (const orig of originals) {
+      const baseName = path.parse(orig).name + '.mp4';
+      if (transcoded.includes(baseName)) {
+        fs.unlinkSync(path.join(ORIGINALS_DIR, orig));
+        console.log(`[Cleanup] Deleted stale original: ${orig}`);
+      }
+    }
+  } catch (e) {
+    console.log(`[Cleanup] Warning: ${e.message}`);
+  }
 });
 
 // Allow large uploads — disable default 2-minute timeout

@@ -3,6 +3,8 @@ services:
     build: ./admin
     container_name: watch-webbed-films
     network_mode: host
+    devices:
+      - /dev/dri:/dev/dri
     volumes:
       # Video storage (persistent, on array)
       - /mnt/user/watch:/videos
