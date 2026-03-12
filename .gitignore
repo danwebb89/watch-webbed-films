@@ -26,6 +26,11 @@ node_modules/
 # Originals directory
 originals/
 
+# SQLite database
+*.db
+*.db-wal
+*.db-shm
+
 # Environment files
 .env
 .env.*

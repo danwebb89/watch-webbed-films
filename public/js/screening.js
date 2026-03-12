@@ -9,15 +9,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    const res = await fetch('/data/projects.json');
-    const projects = await res.json();
-    const project = projects.find(p => p.uuid === uuid && p.active);
-
-    if (!project) {
+    const res = await fetch(`/api/public/projects/${uuid}`);
+    if (!res.ok) {
       document.querySelector('.screening-body').innerHTML =
         '<div class="empty-state"><p>// This screening link has expired</p></div>';
       return;
     }
+    const project = await res.json();
 
     document.title = `${project.title} — Screening`;
     document.getElementById('screening-title').textContent = project.title;

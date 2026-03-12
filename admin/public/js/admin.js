@@ -295,6 +295,7 @@ async function loadFilms() {
             <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${f.year}</td>
             <td>
               <span class="${f.public ? 'status-active' : 'status-inactive'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
+              ${f.password_hash ? '<span class="status-locked">LOCKED</span>' : ''}
             </td>
             <td style="text-align:right">
               <button class="btn btn-sm" onclick="editFilm('${f.slug}')">Edit</button>
@@ -333,6 +334,13 @@ document.getElementById('btn-add-film').addEventListener('click', () => {
 
   // Reset visibility to public
   document.querySelector('input[name="film-visibility"][value="public"]').checked = true;
+  document.getElementById('film-featured').checked = false;
+  document.getElementById('film-password').value = '';
+  document.getElementById('film-password-status').textContent = '';
+  document.getElementById('film-synopsis').value = '';
+  document.getElementById('film-credits').value = '';
+  document.getElementById('film-duration').value = '';
+  document.getElementById('film-role').value = '';
 
   clearModalTranscode();
   openModal('film-modal');
@@ -356,6 +364,10 @@ async function editFilm(slug) {
   document.getElementById('film-category').value = film.category || '';
   document.getElementById('film-year').value = film.year || new Date().getFullYear();
   document.getElementById('film-description').value = film.description || '';
+  document.getElementById('film-synopsis').value = film.synopsis || '';
+  document.getElementById('film-credits').value = film.credits || '';
+  document.getElementById('film-duration').value = film.duration_minutes || '';
+  document.getElementById('film-role').value = film.role_description || '';
 
   // Set video path
   document.getElementById('film-video-path').value = film.video || '';
@@ -379,6 +391,11 @@ async function editFilm(slug) {
   // Set visibility
   const vis = film.public ? 'public' : 'client';
   document.querySelector(`input[name="film-visibility"][value="${vis}"]`).checked = true;
+  document.getElementById('film-featured').checked = !!film.eligible_for_featured;
+  document.getElementById('film-password').value = '';
+  const pwStatus = document.getElementById('film-password-status');
+  pwStatus.textContent = film.password_hash ? 'Currently set' : '';
+  pwStatus.className = 'password-status' + (film.password_hash ? ' pw-set' : '');
 
   // Show thumbnail preview if available
   updateThumbPreview(film.video, film.thumbnail);
@@ -458,9 +475,14 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
     category: document.getElementById('film-category').value,
     year: document.getElementById('film-year').value,
     description: document.getElementById('film-description').value,
+    synopsis: document.getElementById('film-synopsis').value,
+    credits: document.getElementById('film-credits').value,
+    duration_minutes: document.getElementById('film-duration').value ? parseInt(document.getElementById('film-duration').value) : null,
+    role_description: document.getElementById('film-role').value,
     video: videoPath,
     thumbnail,
     public: isPublic,
+    eligible_for_featured: document.getElementById('film-featured').checked,
   };
 
   if (!isEdit) {
@@ -477,6 +499,19 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
   });
 
   if (res.ok) {
+    const savedFilm = await res.json();
+    const filmSlug = savedFilm.slug || data.slug || editSlug;
+
+    // Save password if provided
+    const passwordVal = document.getElementById('film-password').value;
+    if (passwordVal !== '') {
+      await fetch(`/api/films/${filmSlug}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordVal })
+      });
+    }
+
     filmProgressFilled.style.width = '100%';
     filmProgressFilled.classList.add('progress-done');
     filmProgressText.textContent = 'Done ✓';
@@ -636,8 +671,87 @@ function copyLink(url) {
   });
 }
 
+// ---- Access Requests ----
+async function loadRequests() {
+  const res = await fetch('/api/access-requests');
+  const requests = await res.json();
+  const el = document.getElementById('requests-list');
+  const badge = document.getElementById('requests-badge');
+  const pending = requests.filter(r => r.status === 'pending');
+
+  // Update badge
+  if (pending.length > 0) {
+    badge.textContent = pending.length;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  if (requests.length === 0) {
+    el.innerHTML = '<div class="admin-empty"><p>// No access requests</p></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Film</th><th>Name</th><th>Email</th><th>Reason</th><th>Date</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${requests.map(r => `
+          <tr>
+            <td style="font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:0.5px">${r.film_slug}</td>
+            <td>${r.name}</td>
+            <td><a href="mailto:${r.email}" style="color:var(--gold)">${r.email}</a></td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:12px">${r.reason || '—'}</td>
+            <td style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">${r.requested_at ? r.requested_at.split('T')[0] : ''}</td>
+            <td>
+              <span class="${r.status === 'pending' ? 'status-pending' : r.status === 'approved' ? 'status-active' : 'status-inactive'}">${r.status.toUpperCase()}</span>
+            </td>
+            <td style="text-align:right">
+              ${r.status === 'pending' ? `
+                <button class="btn btn-sm" onclick="approveRequest(${r.id})">Approve</button>
+                <button class="btn btn-sm" onclick="denyRequest(${r.id})">Deny</button>
+              ` : ''}
+              <button class="btn btn-sm btn-danger" onclick="deleteRequest(${r.id})">Delete</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function approveRequest(id) {
+  await fetch(`/api/access-requests/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'approved' })
+  });
+  toast('Request approved');
+  loadRequests();
+}
+
+async function denyRequest(id) {
+  await fetch(`/api/access-requests/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'denied' })
+  });
+  toast('Request denied');
+  loadRequests();
+}
+
+async function deleteRequest(id) {
+  if (!confirm('Delete this request?')) return;
+  await fetch(`/api/access-requests/${id}`, { method: 'DELETE' });
+  toast('Request deleted');
+  loadRequests();
+}
+
 // ---- Init ----
 loadFilms();
 loadProjects();
+loadRequests();
 loadVideoFiles();
 loadThumbFiles();

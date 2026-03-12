@@ -335,6 +335,53 @@ body {
   letter-spacing: 1px;
 }
 
+.status-pending {
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.tab-badge {
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.status-locked {
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-left: 6px;
+}
+
+.password-field-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.password-field-wrap input {
+  flex: 1;
+}
+
+.password-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.password-status.pw-set {
+  color: var(--gold);
+}
+
 .link-copy {
   font-family: var(--mono);
   font-size: 11px;
@@ -375,6 +422,14 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 24px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+.form-row .form-group {
+  flex: 1;
 }
 
 .form-group {
@@ -559,6 +614,42 @@ body {
   height: 8px;
   border-radius: 50%;
   background: var(--gold);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.checkbox-label input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  font-size: 12px;
+  color: var(--bg);
+  font-weight: 700;
 }
 
 /* ---- THUMBNAIL PREVIEW ---- */

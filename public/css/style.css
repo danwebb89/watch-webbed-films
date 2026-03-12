@@ -178,6 +178,91 @@ a {
   border-bottom-color: var(--color-gold);
 }
 
+/* ---- HERO: FILM OF THE DAY ---- */
+
+.hero {
+  position: relative;
+  width: 100%;
+  min-height: 70vh;
+  margin-top: var(--header-h);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.hero.hidden {
+  display: none;
+}
+
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, var(--bg) 0%, rgba(10,10,10,0.6) 40%, transparent 70%),
+    linear-gradient(to right, rgba(10,10,10,0.7) 0%, transparent 60%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  padding: 80px 60px;
+  max-width: 700px;
+}
+
+.hero-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.hero-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 300;
+  font-size: clamp(36px, 5vw, 72px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+
+.hero-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+.hero-btn {
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: 50vh;
+  }
+  .hero-content {
+    padding: 40px 24px;
+  }
+}
+
 /* ---- PAGE CONTENT ---- */
 
 .page-content {
@@ -246,6 +331,49 @@ a {
 .cat-btn.active {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+/* ---- CATEGORY LINKS ---- */
+
+.category-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 48px 0;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.cat-link {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 300;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.cat-link:hover {
+  color: var(--accent);
+}
+
+.category-back {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.category-back:hover {
+  color: var(--text);
 }
 
 /* ---- FILM GRID ---- */
@@ -322,6 +450,251 @@ a {
   letter-spacing: 1.5px;
   text-transform: uppercase;
   margin-bottom: 12px;
+}
+
+/* ---- LOCK ICON ON FILM CARDS ---- */
+
+.film-card-lock {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.film-card-lock svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--accent);
+}
+
+.film-card-locked img {
+  filter: brightness(0.6);
+}
+
+/* ---- PASSWORD MODAL (landing page) ---- */
+
+.pw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pw-modal-overlay.hidden {
+  display: none;
+}
+
+.pw-modal {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 48px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+}
+
+.pw-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pw-modal-close:hover {
+  color: var(--text);
+}
+
+.pw-modal-lock {
+  margin-bottom: 20px;
+}
+
+.pw-modal-lock svg {
+  fill: var(--accent);
+}
+
+.pw-modal-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 300;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pw-modal-subtitle {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.pw-modal form,
+.pw-gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.pw-modal input,
+.pw-gate-form input {
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  padding: 14px 20px;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-align: center;
+  width: 100%;
+  max-width: 280px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pw-modal input:focus,
+.pw-gate-form input:focus {
+  border-color: var(--accent);
+}
+
+.pw-modal-error {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #e05555;
+  letter-spacing: 1px;
+  min-height: 16px;
+}
+
+/* ---- REQUEST ACCESS ---- */
+
+.pw-modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+  color: var(--color-muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.pw-modal-divider::before,
+.pw-modal-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pw-request-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.2s;
+}
+
+.pw-request-btn:hover {
+  color: var(--text);
+}
+
+.pw-request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.pw-request-form.hidden {
+  display: none;
+}
+
+.pw-request-form input,
+.pw-request-form textarea {
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  padding: 12px 16px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: none;
+}
+
+.pw-request-form input:focus,
+.pw-request-form textarea:focus {
+  border-color: var(--accent);
+}
+
+.pw-request-success {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.pw-request-success.hidden {
+  display: none;
+}
+
+/* ---- PASSWORD GATE (watch page) ---- */
+
+.player-password-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  background: #0d0d0d;
+  padding: 48px;
+}
+
+.pw-gate-icon svg {
+  fill: var(--accent);
+  margin-bottom: 20px;
+}
+
+.pw-gate-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--color-muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
 }
 
 /* ---- WATCH PAGE ---- */
@@ -543,6 +916,33 @@ a {
   font-weight: 300;
   font-size: 15px;
   line-height: 1.75;
+  color: rgba(240, 237, 232, 0.6);
+}
+
+/* ---- WATCH: Extended Details ---- */
+
+.watch-details {
+  margin-top: 32px;
+  max-width: 680px;
+  display: grid;
+  gap: 28px;
+}
+
+.watch-details h3 {
+  font-family: var(--heading);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.watch-synopsis p,
+.watch-credits p {
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.7;
   color: rgba(240, 237, 232, 0.6);
 }
 

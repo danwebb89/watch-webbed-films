@@ -52,7 +52,7 @@ tools/wf files thumbs                  # List thumbnails on server
 
 ### Categories
 
-Feature Films, Short Films, Media Zoo, Ratcliffe Studios, Revelstoke Films, Showreels, Trailers and BTS, Webbed Films
+Originals, Documentary, Short Films, Feature Films, Corporate
 
 ### Visibility
 

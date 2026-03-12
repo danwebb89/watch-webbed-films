@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const cookieParser = require('cookie-parser');
 const { spawn } = require('child_process');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3500;
@@ -161,11 +162,8 @@ async function probeFor(filePath) {
   });
 }
 
-// Ensure JSON files exist
-const filmsPath = path.join(DATA_DIR, 'films.json');
-const projectsPath = path.join(DATA_DIR, 'projects.json');
-if (!fs.existsSync(filmsPath)) fs.writeFileSync(filmsPath, '[]');
-if (!fs.existsSync(projectsPath)) fs.writeFileSync(projectsPath, '[]');
+// Initialise SQLite database
+db.init(DATA_DIR);
 
 app.use(express.json());
 app.use(cookieParser());
@@ -222,8 +220,60 @@ app.use('/admin-assets', express.static(path.join(__dirname, 'public'), {
 // Serve public site
 app.use(express.static(PUBLIC_DIR));
 
-// Serve data dir as /data (for the public site to fetch JSON)
-app.use('/data', express.static(DATA_DIR));
+// ---- Public API (no auth required) ----
+
+app.get('/api/public/featured', (req, res) => {
+  const film = db.featuredFilm();
+  if (!film) return res.json(null);
+  res.json(film);
+});
+
+app.get('/api/public/films', (req, res) => {
+  res.json(db.publicFilms());
+});
+
+app.get('/api/public/films/:slug', (req, res) => {
+  const film = db.filmBySlug(req.params.slug);
+  if (!film || !film.public) return res.status(404).json({ error: 'Not found' });
+  const locked = !!film.password_hash;
+  const { password_hash, ...rest } = film;
+  const result = { ...rest, public: !!film.public, password_protected: locked };
+  // Don't expose video path for locked films — require password verification first
+  if (locked) result.video = '';
+  res.json(result);
+});
+
+app.post('/api/public/films/:slug/verify-password', (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  const film = db.filmBySlug(req.params.slug);
+  if (!film || !film.public) return res.status(404).json({ error: 'Not found' });
+  if (!film.password_hash) {
+    // No password set — just grant access
+    return res.json({ ok: true, video: film.video });
+  }
+  if (db.verifyFilmPassword(req.params.slug, password)) {
+    return res.json({ ok: true, video: film.video });
+  }
+  res.status(401).json({ error: 'Wrong password' });
+});
+
+app.post('/api/public/access-request', (req, res) => {
+  const { film_slug, name, email, reason } = req.body;
+  if (!film_slug || !name || !email) return res.status(400).json({ error: 'Name, email, and film are required' });
+  // Verify the film exists and is password-protected
+  const film = db.filmBySlug(film_slug);
+  if (!film || !film.public) return res.status(404).json({ error: 'Film not found' });
+  if (!film.password_hash) return res.status(400).json({ error: 'Film is not password protected' });
+  const request = db.createAccessRequest({ film_slug, name, email, reason });
+  res.json({ ok: true, id: request.id });
+});
+
+app.get('/api/public/projects/:uuid', (req, res) => {
+  const project = db.projectByUuid(req.params.uuid);
+  if (!project || !project.active) return res.status(404).json({ error: 'Not found' });
+  res.json(project);
+});
 
 // Serve videos and thumbs
 app.use('/assets/videos', express.static(VIDEO_DIR));
@@ -424,104 +474,80 @@ app.get('/api/files/thumbs', requireAuth, (req, res) => {
 
 // ---- Films CRUD ----
 
-function readFilms() {
-  return JSON.parse(fs.readFileSync(filmsPath, 'utf-8'));
-}
-
-function writeFilms(data) {
-  fs.writeFileSync(filmsPath, JSON.stringify(data, null, 2));
-}
-
 app.get('/api/films', requireAuth, (req, res) => {
-  res.json(readFilms());
+  res.json(db.allFilms());
 });
 
 app.post('/api/films', requireAuth, (req, res) => {
-  const films = readFilms();
-  const { title, slug, category, year, description, thumbnail, video } = req.body;
+  const { title, slug, category, year, description, thumbnail, video, eligible_for_featured } = req.body;
   const isPublic = req.body.public !== undefined ? req.body.public : true;
   if (!title || !slug) return res.status(400).json({ error: 'Title and slug required' });
-  if (films.find(f => f.slug === slug)) return res.status(409).json({ error: 'Slug already exists' });
+  if (db.filmBySlug(slug)) return res.status(409).json({ error: 'Slug already exists' });
 
-  const film = {
-    slug,
-    title,
-    category: category || '',
-    year: parseInt(year) || new Date().getFullYear(),
-    description: description || '',
-    thumbnail: thumbnail || '',
-    video: video || '',
-    public: isPublic
-  };
-
-  films.push(film);
-  writeFilms(films);
+  const film = db.createFilm({ slug, title, category, year: parseInt(year) || new Date().getFullYear(), description, thumbnail, video, public: isPublic, eligible_for_featured });
   res.json(film);
 });
 
 app.put('/api/films/:slug', requireAuth, (req, res) => {
-  const films = readFilms();
-  const idx = films.findIndex(f => f.slug === req.params.slug);
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-
-  Object.assign(films[idx], req.body);
-  writeFilms(films);
-  res.json(films[idx]);
+  const film = db.updateFilm(req.params.slug, req.body);
+  if (!film) return res.status(404).json({ error: 'Not found' });
+  res.json(film);
 });
 
 app.delete('/api/films/:slug', requireAuth, (req, res) => {
-  let films = readFilms();
-  films = films.filter(f => f.slug !== req.params.slug);
-  writeFilms(films);
+  db.deleteFilm(req.params.slug);
   res.json({ ok: true });
+});
+
+app.put('/api/films/:slug/password', requireAuth, (req, res) => {
+  const { password } = req.body;
+  const film = db.setFilmPassword(req.params.slug, password || null);
+  if (!film) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true, password_protected: !!film.password_hash });
 });
 
 // ---- Projects CRUD ----
 
-function readProjects() {
-  return JSON.parse(fs.readFileSync(projectsPath, 'utf-8'));
-}
-
-function writeProjects(data) {
-  fs.writeFileSync(projectsPath, JSON.stringify(data, null, 2));
-}
-
 app.get('/api/projects', requireAuth, (req, res) => {
-  res.json(readProjects());
+  res.json(db.allProjects());
 });
 
 app.post('/api/projects', requireAuth, (req, res) => {
-  const projects = readProjects();
   const { title, video } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
 
-  const project = {
-    uuid: uuidv4().split('-')[0],
-    title,
-    video: video || '',
-    active: true,
-    created: new Date().toISOString().split('T')[0]
-  };
-
-  projects.push(project);
-  writeProjects(projects);
+  const uuid = uuidv4().split('-')[0];
+  const project = db.createProject({ uuid, title, video });
   res.json(project);
 });
 
 app.put('/api/projects/:uuid', requireAuth, (req, res) => {
-  const projects = readProjects();
-  const idx = projects.findIndex(p => p.uuid === req.params.uuid);
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-
-  Object.assign(projects[idx], req.body);
-  writeProjects(projects);
-  res.json(projects[idx]);
+  const project = db.updateProject(req.params.uuid, req.body);
+  if (!project) return res.status(404).json({ error: 'Not found' });
+  res.json(project);
 });
 
 app.delete('/api/projects/:uuid', requireAuth, (req, res) => {
-  let projects = readProjects();
-  projects = projects.filter(p => p.uuid !== req.params.uuid);
-  writeProjects(projects);
+  db.deleteProject(req.params.uuid);
+  res.json({ ok: true });
+});
+
+// ---- Access Requests (admin) ----
+
+app.get('/api/access-requests', requireAuth, (req, res) => {
+  res.json(db.allAccessRequests());
+});
+
+app.put('/api/access-requests/:id', requireAuth, (req, res) => {
+  const { status } = req.body;
+  if (!['approved', 'denied'].includes(status)) return res.status(400).json({ error: 'Status must be approved or denied' });
+  const request = db.updateAccessRequest(parseInt(req.params.id), status);
+  if (!request) return res.status(404).json({ error: 'Not found' });
+  res.json(request);
+});
+
+app.delete('/api/access-requests/:id', requireAuth, (req, res) => {
+  db.deleteAccessRequest(parseInt(req.params.id));
   res.json({ ok: true });
 });
 
@@ -539,6 +565,10 @@ app.get('/watch.html', (req, res) => {
 
 app.get('/screening.html', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'screening.html'));
+});
+
+app.get('/category/:slug', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'category.html'));
 });
 
 // ---- Login page HTML ----

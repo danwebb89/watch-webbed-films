@@ -1,24 +1,34 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const grid = document.getElementById('film-grid');
-  let allFilms = [];
 
-  // ---- Hero: Film of the Day ----
-  try {
-    const heroRes = await fetch('/api/public/featured');
-    const featured = await heroRes.json();
-    if (featured && featured.thumbnail) {
-      const hero = document.getElementById('hero');
-      document.getElementById('hero-img').src = featured.thumbnail;
-      document.getElementById('hero-title').textContent = featured.title;
-      const metaParts = [featured.category, featured.year].filter(Boolean);
-      document.getElementById('hero-meta').textContent = metaParts.join(' — ');
-      document.getElementById('hero-link').href = `/watch.html?film=${featured.slug}`;
-      hero.classList.remove('hidden');
-      document.querySelector('.page-content').style.paddingTop = '0';
-    }
-  } catch (e) { /* hero is optional — fail silently */ }
+  // Extract category from URL: /category/short-films → "short-films"
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const catSlug = pathParts[1] || '';
 
-  // Check if a film is unlocked in this session
+  if (!catSlug) {
+    window.location.href = '/';
+    return;
+  }
+
+  // Slug-to-name mapping
+  const categories = {
+    'originals': 'Originals',
+    'documentary': 'Documentary',
+    'short-films': 'Short Films',
+    'feature-films': 'Feature Films',
+    'corporate': 'Corporate'
+  };
+
+  const categoryName = categories[catSlug];
+  if (!categoryName) {
+    window.location.href = '/';
+    return;
+  }
+
+  document.getElementById('category-title').textContent = categoryName;
+  document.title = `${categoryName} — Webbed Films`;
+
+  // Session unlock helpers
   function isUnlocked(slug) {
     try {
       const unlocked = JSON.parse(sessionStorage.getItem('unlocked_films') || '[]');
@@ -35,8 +45,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderFilms(films) {
+    document.getElementById('category-count').textContent = films.length;
+
     if (films.length === 0) {
-      grid.innerHTML = '<div class="empty-state"><p>// No films yet</p></div>';
+      grid.innerHTML = '<div class="empty-state"><p>// No films in this category</p></div>';
       grid.className = '';
       return;
     }
@@ -71,7 +83,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('pw-modal-title').textContent = title;
     document.getElementById('pw-modal-input').value = '';
     document.getElementById('pw-modal-error').textContent = '';
-    // Reset request form state
     document.getElementById('pw-request-form').classList.add('hidden');
     document.getElementById('pw-request-success').classList.add('hidden');
     document.getElementById('pw-request-toggle').style.display = '';
@@ -90,7 +101,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const slug = modal.dataset.slug;
     const password = document.getElementById('pw-modal-input').value;
     const errorEl = document.getElementById('pw-modal-error');
-
     try {
       const res = await fetch(`/api/public/films/${slug}/verify-password`, {
         method: 'POST',
@@ -109,24 +119,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Close modal on overlay click
   document.getElementById('password-modal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
   });
 
-  // Request Access toggle
   document.getElementById('pw-request-toggle').addEventListener('click', () => {
     document.getElementById('pw-request-form').classList.toggle('hidden');
     document.getElementById('pw-request-toggle').style.display = 'none';
   });
 
-  // Request Access form submit
   document.getElementById('pw-request-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const modal = document.getElementById('password-modal');
     const slug = modal.dataset.slug;
     const errorEl = document.getElementById('pw-request-error');
-
     try {
       const res = await fetch('/api/public/access-request', {
         method: 'POST',
@@ -150,28 +156,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Fetch and render
   try {
     const res = await fetch('/api/public/films');
-    allFilms = await res.json();
-    renderFilms(allFilms);
+    const films = await res.json();
+    const filtered = films.filter(f => f.category === categoryName);
+    renderFilms(filtered);
   } catch (e) {
     grid.innerHTML = '<div class="empty-state"><p>// Unable to load films</p></div>';
     grid.className = '';
-    return;
   }
-
-  // Category filtering
-  document.querySelectorAll('.cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      const cat = btn.dataset.cat;
-      if (cat === 'all') {
-        renderFilms(allFilms);
-      } else {
-        renderFilms(allFilms.filter(f => f.category === cat));
-      }
-    });
-  });
 });

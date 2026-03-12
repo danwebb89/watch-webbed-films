@@ -21,6 +21,7 @@
   <div class="admin-tabs">
     <button class="admin-tab active" data-tab="films">// Films</button>
     <button class="admin-tab" data-tab="projects">// Client Projects</button>
+    <button class="admin-tab" data-tab="requests">// Access Requests <span id="requests-badge" class="tab-badge" style="display:none"></span></button>
   </div>
 
   <!-- FILMS TAB -->
@@ -40,6 +41,13 @@
         <button class="btn" id="btn-add-project">+ Add Project</button>
       </div>
       <div id="projects-list"></div>
+    </div>
+    <!-- ACCESS REQUESTS TAB -->
+    <div id="tab-requests" class="tab-panel">
+      <div class="section-head">
+        <h2>Access Requests</h2>
+      </div>
+      <div id="requests-list"></div>
     </div>
   </div>
 
@@ -79,14 +87,11 @@
           <label>Category</label>
           <select id="film-category">
             <option value="">Select category...</option>
-            <option value="Feature Films">Feature Films</option>
+            <option value="Originals">Originals</option>
+            <option value="Documentary">Documentary</option>
             <option value="Short Films">Short Films</option>
-            <option value="Media Zoo">Media Zoo</option>
-            <option value="Ratcliffe Studios">Ratcliffe Studios</option>
-            <option value="Revelstoke Films">Revelstoke Films</option>
-            <option value="Showreels">Showreels</option>
-            <option value="Trailers and BTS">Trailers and BTS</option>
-            <option value="Webbed Films">Webbed Films</option>
+            <option value="Feature Films">Feature Films</option>
+            <option value="Corporate">Corporate</option>
           </select>
         </div>
         <div class="form-group">
@@ -95,7 +100,25 @@
         </div>
         <div class="form-group">
           <label>Description</label>
-          <textarea id="film-description"></textarea>
+          <textarea id="film-description" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Synopsis</label>
+          <textarea id="film-synopsis" rows="3" placeholder="Detailed synopsis or logline"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Credits</label>
+          <textarea id="film-credits" rows="3" placeholder="Director, Producer, DOP, etc."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Duration (minutes)</label>
+            <input type="number" id="film-duration" placeholder="e.g. 12">
+          </div>
+          <div class="form-group">
+            <label>Dan's Role</label>
+            <input type="text" id="film-role" placeholder="e.g. Director / Editor">
+          </div>
         </div>
         <div class="form-group">
           <label>Visibility</label>
@@ -109,6 +132,20 @@
               <span>Client</span>
             </label>
           </div>
+        </div>
+        <div class="form-group">
+          <label>Password Protection</label>
+          <div class="password-field-wrap">
+            <input type="text" id="film-password" placeholder="Leave empty for no password">
+            <span id="film-password-status" class="password-status"></span>
+          </div>
+          <p class="form-hint">Set a password to restrict access. Clear to make freely viewable.</p>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="film-featured">
+            <span>Eligible for Film of the Day</span>
+          </label>
         </div>
         <div class="form-group">
           <label>Thumbnail</label>
