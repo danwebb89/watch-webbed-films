@@ -160,8 +160,8 @@ async function generateThumbnail(videoPath, thumbName) {
   const duration = await probeFor(videoPath);
   const outputPath = path.join(THUMB_DIR, thumbName);
 
-  // Generate 5 candidates at different points and pick the best one
-  const percentages = [0.15, 0.30, 0.45, 0.60, 0.75];
+  // Generate 10 candidates at different points and pick the best one
+  const percentages = [0.08, 0.16, 0.24, 0.32, 0.40, 0.50, 0.58, 0.66, 0.76, 0.88];
   const candidates = [];
 
   for (let i = 0; i < percentages.length; i++) {
