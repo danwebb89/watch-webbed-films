@@ -261,10 +261,11 @@ body {
 }
 
 .action-box-title {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 400;
-  font-style: italic;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   color: var(--text);
   display: block;
 }
@@ -272,22 +273,24 @@ body {
 .action-box-desc {
   font-family: var(--font);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 300;
   color: var(--text-muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
   display: block;
-  margin-top: 4px;
+  margin-top: 6px;
+  text-transform: none;
 }
 
 .action-box-count {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 300;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
   color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   display: block;
-  margin-top: 12px;
-  opacity: 0.7;
+  margin-top: 14px;
+  opacity: 0.6;
 }
 
 /* ---- BACK BUTTON ---- */
@@ -403,10 +406,11 @@ body {
 }
 
 .project-detail-title {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 400;
-  font-style: italic;
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text);
   margin-bottom: 8px;
 }
@@ -532,41 +536,40 @@ body {
 }
 
 .section-head h2 {
-  font-family: var(--font);
+  font-family: var(--font-heading);
   font-weight: 300;
-  font-size: 16px;
-  letter-spacing: 0.15em;
+  font-size: 20px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text);
 }
 
-/* ---- ADD CIRCLE BUTTON (+ icon) ---- */
+/* ---- ADD PILL BUTTON ---- */
 
-.btn-add-circle {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 50%;
+.btn-add-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
-  border: 2px solid var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
   color: var(--gold);
-  font-size: 28px;
-  font-weight: 300;
-  line-height: 44px;
-  text-align: center;
-  padding: 0;
-  margin: 0;
-  display: inline-block;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 20px;
   cursor: pointer;
   transition: background 0.2s, transform 0.15s;
   -webkit-appearance: none;
   appearance: none;
+  white-space: nowrap;
 }
 
-.btn-add-circle:hover {
+.btn-add-pill:hover {
   background: var(--gold-dim);
-  transform: scale(1.08);
+  transform: scale(1.03);
 }
 
 /* ---- BUTTONS ---- */
