@@ -112,46 +112,86 @@ function uploadVideoInModal(file) {
     titleField.dispatchEvent(new Event('input')); // trigger slug auto-gen
   }
 
-  const formData = new FormData();
-  formData.append('file', file);
+  // Use chunked upload to avoid browser XHR stalling on large files
+  uploadFileChunked(file);
+}
 
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/upload/video');
+async function uploadFileChunked(file) {
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-  xhr.upload.addEventListener('progress', (e) => {
-    if (e.lengthComputable) {
-      const pct = Math.round((e.loaded / e.total) * 100);
-      filmProgressFilled.style.width = pct + '%';
-      const sizeMB = (e.loaded / 1024 / 1024).toFixed(1);
-      const totalMB = (e.total / 1024 / 1024).toFixed(1);
-      filmProgressText.textContent = `Uploading ${sizeMB} MB / ${totalMB} MB  (${pct}%)`;
-    }
-  });
+  try {
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
 
-  xhr.addEventListener('load', () => {
-    if (xhr.status === 200) {
-      const data = JSON.parse(xhr.responseText);
-      if (data.transcodeId) {
-        filmProgressFilled.style.width = '100%';
-        filmProgressText.textContent = 'Upload complete — transcoding...';
-        pollModalTranscode(data.transcodeId, data.filename);
+      const formData = new FormData();
+      formData.append('chunk', chunk);
+      formData.append('uploadId', uploadId);
+      formData.append('chunkIndex', i.toString());
+      formData.append('totalChunks', totalChunks.toString());
+      formData.append('filename', safeName);
+      formData.append('fileSize', file.size.toString());
+
+      const res = await fetch('/api/upload/video-chunk', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(err.error || `Chunk ${i} failed with status ${res.status}`);
       }
-    } else {
-      toast('Upload failed');
-      filmProgressWrap.style.display = 'none';
-      filmSubmitBtn.disabled = false;
-    }
-    filmVideoInput.value = '';
-  });
 
-  xhr.addEventListener('error', () => {
-    toast('Upload failed');
+      // Update progress
+      const uploaded = end;
+      const pct = Math.round((uploaded / file.size) * 100);
+      filmProgressFilled.style.width = pct + '%';
+      const sizeMB = (uploaded / 1024 / 1024).toFixed(1);
+      const totalMB = (file.size / 1024 / 1024).toFixed(1);
+      filmProgressText.textContent = `Uploading ${sizeMB} MB / ${totalMB} MB  (${pct}%)`;
+
+      // On final chunk, server returns transcode info
+      if (i === totalChunks - 1) {
+        const data = await res.json().catch(() => null);
+        if (data) {
+          // Re-parse since we already consumed it above...
+          // Actually let's restructure
+        }
+      }
+    }
+
+    // All chunks sent — tell server to assemble and transcode
+    const assembleRes = await fetch('/api/upload/video-assemble', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadId, filename: safeName }),
+    });
+
+    if (!assembleRes.ok) {
+      const err = await assembleRes.json().catch(() => ({ error: 'Assembly failed' }));
+      throw new Error(err.error || 'Failed to assemble video');
+    }
+
+    const data = await assembleRes.json();
+    filmProgressFilled.style.width = '100%';
+    filmProgressText.textContent = 'Upload complete — transcoding...';
+
+    if (data.transcodeId) {
+      pollModalTranscode(data.transcodeId, data.filename);
+    }
+
+  } catch (err) {
+    console.error('Upload error:', err);
+    toast('Upload failed: ' + err.message);
     filmProgressWrap.style.display = 'none';
     filmSubmitBtn.disabled = false;
-    filmVideoInput.value = '';
-  });
+  }
 
-  xhr.send(formData);
+  filmVideoInput.value = '';
 }
 
 function pollModalTranscode(jobId, filename) {

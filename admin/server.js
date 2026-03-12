@@ -15,9 +15,10 @@ const THUMB_DIR = process.env.THUMB_DIR || path.join(__dirname, '..', 'public', 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, '..', 'public');
 const ORIGINALS_DIR = path.join(VIDEO_DIR, 'originals');
+const CHUNKS_DIR = path.join(VIDEO_DIR, 'chunks');
 
 // Ensure directories exist
-[VIDEO_DIR, THUMB_DIR, DATA_DIR, ORIGINALS_DIR].forEach(dir => {
+[VIDEO_DIR, THUMB_DIR, DATA_DIR, ORIGINALS_DIR, CHUNKS_DIR].forEach(dir => {
   fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -280,6 +281,92 @@ app.post('/api/upload/video', requireAuth, (req, res, next) => {
     transcodeId: jobId,
     original: req.file.filename
   });
+});
+
+// ---- Chunked Upload ----
+
+const chunkUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(CHUNKS_DIR, req.body.uploadId || 'unknown');
+      fs.mkdirSync(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, `chunk_${req.body.chunkIndex}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB per chunk
+});
+
+app.post('/api/upload/video-chunk', requireAuth, chunkUpload.single('chunk'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No chunk' });
+  const { uploadId, chunkIndex, totalChunks } = req.body;
+  console.log(`[Upload] Chunk ${parseInt(chunkIndex)+1}/${totalChunks} for ${uploadId}`);
+  res.json({ ok: true, chunkIndex: parseInt(chunkIndex) });
+});
+
+app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, res) => {
+  const { uploadId, filename } = req.body;
+  if (!uploadId || !filename) return res.status(400).json({ error: 'Missing uploadId or filename' });
+
+  const chunkDir = path.join(CHUNKS_DIR, uploadId);
+  if (!fs.existsSync(chunkDir)) return res.status(400).json({ error: 'No chunks found' });
+
+  try {
+    // Get all chunk files sorted by index
+    const chunkFiles = fs.readdirSync(chunkDir)
+      .filter(f => f.startsWith('chunk_'))
+      .sort((a, b) => parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]));
+
+    // Assemble into originals dir
+    const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const assembledPath = path.join(ORIGINALS_DIR, safe);
+    const writeStream = fs.createWriteStream(assembledPath);
+
+    for (const chunkFile of chunkFiles) {
+      const chunkPath = path.join(chunkDir, chunkFile);
+      const data = fs.readFileSync(chunkPath);
+      writeStream.write(data);
+    }
+
+    await new Promise((resolve, reject) => {
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+      writeStream.end();
+    });
+
+    // Clean up chunks
+    fs.rmSync(chunkDir, { recursive: true, force: true });
+
+    console.log(`[Upload] Assembled ${chunkFiles.length} chunks → ${safe} (${(fs.statSync(assembledPath).size / 1024 / 1024).toFixed(1)} MB)`);
+
+    // Start transcode (same as regular upload)
+    const baseName = path.parse(safe).name;
+    const outputName = baseName + '.mp4';
+    const outputPath = path.join(VIDEO_DIR, outputName);
+
+    const jobId = crypto.randomBytes(8).toString('hex');
+    transcodeJobs.set(jobId, {
+      status: 'queued',
+      progress: 0,
+      input: safe,
+      output: outputName,
+      error: null
+    });
+
+    transcodeVideo(jobId, assembledPath, outputPath);
+
+    res.json({
+      filename: outputName,
+      path: `/assets/videos/${outputName}`,
+      transcodeId: jobId,
+      original: safe
+    });
+  } catch (err) {
+    console.error('[Upload] Assembly error:', err);
+    res.status(500).json({ error: 'Failed to assemble: ' + err.message });
+  }
 });
 
 // Transcode status
