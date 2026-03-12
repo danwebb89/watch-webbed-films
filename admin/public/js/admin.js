@@ -513,6 +513,9 @@ document.getElementById('btn-add-film').addEventListener('click', () => {
   if (cancelBtn) cancelBtn.textContent = 'Cancel';
 
   document.getElementById('thumb-preview').style.display = 'none';
+  document.getElementById('thumb-options').style.display = 'none';
+  document.getElementById('thumb-options-grid').innerHTML = '';
+  document.getElementById('film-thumbnail-path').value = '';
 
   document.querySelector('input[name="film-visibility"][value="public"]').checked = true;
   document.getElementById('film-featured').checked = false;
@@ -577,28 +580,61 @@ async function editFilm(slug) {
   openModal('film-modal');
 }
 
-function updateThumbPreview(videoPath, thumbnailPath) {
+async function updateThumbPreview(videoPath, thumbnailPath) {
   const preview = document.getElementById('thumb-preview');
   const previewImg = document.getElementById('thumb-preview-img');
+  const optionsWrap = document.getElementById('thumb-options');
+  const optionsGrid = document.getElementById('thumb-options-grid');
+  const thumbPathInput = document.getElementById('film-thumbnail-path');
   if (!preview) return;
 
-  if (thumbnailPath) {
-    preview.style.display = 'block';
-    previewImg.src = thumbnailPath;
-    return;
-  }
-
-  if (videoPath) {
+  // Show current thumbnail
+  let currentThumb = thumbnailPath;
+  if (!currentThumb && videoPath) {
     const videoName = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
     const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
-    if (autoThumb) {
-      preview.style.display = 'block';
-      previewImg.src = autoThumb.path;
-      return;
-    }
+    if (autoThumb) currentThumb = autoThumb.path;
   }
 
-  preview.style.display = 'none';
+  if (currentThumb) {
+    preview.style.display = 'block';
+    previewImg.src = currentThumb;
+    if (thumbPathInput) thumbPathInput.value = currentThumb;
+  } else {
+    preview.style.display = 'none';
+  }
+
+  // Load thumbnail options
+  if (videoPath) {
+    const videoBase = videoPath.split('/').pop();
+    try {
+      const res = await fetch(`/api/files/thumb-options/${encodeURIComponent(videoBase)}`);
+      const options = await res.json();
+      if (options.length > 1) {
+        optionsGrid.innerHTML = options.map(opt => `
+          <img src="${opt}" alt="Option" class="thumb-option${opt === currentThumb ? ' selected' : ''}"
+               onclick="selectThumbnail(this, '${opt}')" loading="lazy">
+        `).join('');
+        optionsWrap.style.display = 'block';
+      } else {
+        optionsWrap.style.display = 'none';
+      }
+    } catch {
+      optionsWrap.style.display = 'none';
+    }
+  } else {
+    optionsWrap.style.display = 'none';
+  }
+}
+
+function selectThumbnail(imgEl, thumbPath) {
+  // Update selection
+  document.querySelectorAll('.thumb-option').forEach(el => el.classList.remove('selected'));
+  imgEl.classList.add('selected');
+  // Update preview
+  document.getElementById('thumb-preview-img').src = thumbPath;
+  document.getElementById('thumb-preview').style.display = 'block';
+  document.getElementById('film-thumbnail-path').value = thumbPath;
 }
 
 // Auto-generate slug from title
@@ -628,8 +664,9 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
 
   const videoPath = document.getElementById('film-video-path').value || modalVideoPath;
 
-  let thumbnail = '';
-  if (videoPath) {
+  // Use user-selected thumbnail, or fall back to auto-generated
+  let thumbnail = document.getElementById('film-thumbnail-path').value || '';
+  if (!thumbnail && videoPath) {
     const videoName = videoPath.split('/').pop().replace(/\.[^.]+$/, '');
     const autoThumb = thumbFiles.find(f => f.name === videoName + '_thumb.jpg');
     if (autoThumb) thumbnail = autoThumb.path;

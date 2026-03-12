@@ -1032,6 +1032,29 @@ body {
   text-transform: uppercase;
 }
 
+/* Thumbnail option picker */
+.thumb-options { margin-top: 12px; }
+.thumb-options-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.thumb-option {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+.thumb-option:hover { opacity: 1; }
+.thumb-option.selected {
+  border-color: var(--gold);
+  opacity: 1;
+}
+
 /* ---- EMPTY ---- */
 
 .admin-empty {

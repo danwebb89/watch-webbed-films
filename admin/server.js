@@ -90,10 +90,16 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
       job.progress = 100;
       console.log(`[Transcode] Complete: ${path.basename(outputPath)}`);
 
-      // Auto-generate thumbnail
+      // Auto-generate thumbnails (5 options + best pick)
       const thumbName = path.parse(path.basename(outputPath)).name + '_thumb.jpg';
-      const thumbPath = await generateThumbnail(outputPath, thumbName);
-      job.thumbnail = thumbPath;
+      const thumbResult = await generateThumbnail(outputPath, thumbName);
+      if (thumbResult && typeof thumbResult === 'object') {
+        job.thumbnail = thumbResult.selected;
+        job.thumbnailOptions = thumbResult.options;
+      } else {
+        job.thumbnail = thumbResult;
+        job.thumbnailOptions = [];
+      }
 
       // Delete the original from originals/
       try {
@@ -178,16 +184,22 @@ async function generateThumbnail(videoPath, thumbName) {
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
 
-  // Move winner to final path, clean up all candidates
-  fs.renameSync(best.path, outputPath);
-  for (const c of candidates) {
-    if (c !== best) {
-      try { fs.unlinkSync(c.path); } catch {}
-    }
+  // Keep the best as the default thumbnail
+  fs.copyFileSync(best.path, outputPath);
+
+  // Rename candidates to persistent names (thumb_opt_0.jpg ... thumb_opt_4.jpg)
+  const baseName = path.parse(thumbName).name; // e.g. "in_bloom__2007___720p__thumb"
+  const candidatePaths = [];
+  for (let i = 0; i < candidates.length; i++) {
+    const c = candidates[i];
+    const optName = `${baseName}_opt_${i}.jpg`;
+    const optPath = path.join(THUMB_DIR, optName);
+    fs.renameSync(c.path, optPath);
+    candidatePaths.push(`/assets/thumbs/${optName}`);
   }
 
-  console.log(`[Thumbnail] Generated: ${thumbName} (best at ${Math.round(best.pct * 100)}%, brightness=${best.brightness.toFixed(0)}, score=${best.score.toFixed(2)})`);
-  return `/assets/thumbs/${thumbName}`;
+  console.log(`[Thumbnail] Generated: ${thumbName} + ${candidatePaths.length} options (best at ${Math.round(best.pct * 100)}%, brightness=${best.brightness.toFixed(0)}, score=${best.score.toFixed(2)})`);
+  return { selected: `/assets/thumbs/${thumbName}`, options: candidatePaths };
 }
 
 async function probeEnabled() {
@@ -554,6 +566,14 @@ app.get('/api/files/videos', requireAuth, (req, res) => {
     path: `/assets/videos/${f}`,
     size: fs.statSync(path.join(VIDEO_DIR, f)).size
   })));
+});
+
+// List thumbnail options for a given video filename base
+app.get('/api/files/thumb-options/:videoBase', requireAuth, (req, res) => {
+  const base = req.params.videoBase.replace(/\.[^.]+$/, '') + '_thumb';
+  const files = fs.readdirSync(THUMB_DIR).filter(f => f.startsWith(base + '_opt_'));
+  const options = files.sort().map(f => `/assets/thumbs/${f}`);
+  res.json(options);
 });
 
 app.get('/api/files/thumbs', requireAuth, (req, res) => {

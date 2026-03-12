@@ -165,9 +165,14 @@
           <label>Thumbnail</label>
           <div id="thumb-preview" class="thumb-preview" style="display:none">
             <img id="thumb-preview-img" src="" alt="Thumbnail preview">
-            <span class="thumb-preview-label">Auto-generated from video</span>
+            <span class="thumb-preview-label">Selected thumbnail</span>
           </div>
-          <p class="form-hint">Auto-generated from video at 25%</p>
+          <div id="thumb-options" class="thumb-options" style="display:none">
+            <p class="form-hint" style="margin-bottom:8px">Choose a thumbnail:</p>
+            <div id="thumb-options-grid" class="thumb-options-grid"></div>
+          </div>
+          <p id="thumb-hint" class="form-hint">Auto-generated from video</p>
+          <input type="hidden" id="film-thumbnail-path" value="">
         </div>
         <div class="form-actions">
           <button type="button" class="btn btn-danger" onclick="closeModal('film-modal')">Cancel</button>
