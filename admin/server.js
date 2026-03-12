@@ -291,6 +291,8 @@ app.use('/admin-assets', express.static(path.join(__dirname, 'public'), {
 
 // Favicon — serve PNG at /favicon.ico for browsers that look there
 app.get('/favicon.ico', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Content-Type', 'image/png');
   res.sendFile(path.join(PUBLIC_DIR, 'assets', 'images', 'favicon.png'));
 });
 
