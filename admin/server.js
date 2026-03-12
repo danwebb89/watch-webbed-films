@@ -17,10 +17,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, '..', 'public');
 const ORIGINALS_DIR = path.join(VIDEO_DIR, 'originals');
 const CHUNKS_DIR = path.join(VIDEO_DIR, 'chunks');
-const TRANSCODED_DIR = path.join(VIDEO_DIR, 'Transcoded Films');
-
 // Ensure directories exist
-[VIDEO_DIR, THUMB_DIR, DATA_DIR, ORIGINALS_DIR, CHUNKS_DIR, TRANSCODED_DIR].forEach(dir => {
+[VIDEO_DIR, THUMB_DIR, DATA_DIR, ORIGINALS_DIR, CHUNKS_DIR].forEach(dir => {
   fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -96,15 +94,6 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
       const thumbName = path.parse(path.basename(outputPath)).name + '_thumb.jpg';
       const thumbPath = await generateThumbnail(outputPath, thumbName);
       job.thumbnail = thumbPath;
-
-      // Move transcoded file to "Transcoded Films" folder
-      const transcodedDest = path.join(TRANSCODED_DIR, path.basename(outputPath));
-      try {
-        fs.copyFileSync(outputPath, transcodedDest);
-        console.log(`[Transcode] Archived to: Transcoded Films/${path.basename(outputPath)}`);
-      } catch (e) {
-        console.log(`[Transcode] Warning: failed to archive — ${e.message}`);
-      }
 
       // Delete the original from originals/
       try {
@@ -553,7 +542,7 @@ app.post('/api/upload/thumb', requireAuth, thumbUpload.single('file'), (req, res
 // List uploaded files (only transcoded mp4s, not the originals folder)
 app.get('/api/files/videos', requireAuth, (req, res) => {
   const files = fs.readdirSync(VIDEO_DIR).filter(f => {
-    if (f.startsWith('.') || f === 'originals' || f === 'chunks' || f === 'Transcoded Films') return false;
+    if (f.startsWith('.') || f === 'originals' || f === 'chunks') return false;
     return fs.statSync(path.join(VIDEO_DIR, f)).isFile();
   });
   res.json(files.map(f => ({
