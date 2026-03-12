@@ -213,8 +213,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       c.classList.add('is-visible');
       c.style.opacity = '1';
       c.style.transform = 'none';
+      c.style.border = '3px solid red';
+      c.style.minHeight = '200px';
+      c.style.background = 'rgba(255,0,0,0.3)';
     });
-    console.log('[WF] Forced all cards visible');
+    // Also debug the grid itself
+    grid.style.border = '3px solid lime';
+    grid.style.minHeight = '300px';
+    console.log('[WF] Forced all cards visible, grid rect:', grid.getBoundingClientRect());
+    cards.forEach((c, i) => console.log('[WF] Card', i, 'rect:', c.getBoundingClientRect()));
   }
 
   // ---- Password modal ----
