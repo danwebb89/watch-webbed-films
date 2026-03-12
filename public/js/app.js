@@ -7,14 +7,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const heroRes = await fetch('/api/public/featured');
     const featured = await heroRes.json();
     if (featured && featured.thumbnail) {
-      const hero = document.getElementById('hero');
       document.getElementById('hero-img').src = featured.thumbnail;
       document.getElementById('hero-title').textContent = featured.title;
       const metaParts = [featured.category, featured.year].filter(Boolean);
-      document.getElementById('hero-meta').textContent = metaParts.join(' — ');
+      document.getElementById('hero-meta').textContent = metaParts.join(' \u2014 ');
       document.getElementById('hero-link').href = `/watch.html?film=${featured.slug}`;
-      hero.classList.remove('hidden');
-      document.querySelector('.page-content').style.paddingTop = '0';
+      document.getElementById('hero').classList.remove('hidden');
     }
   } catch (e) { /* hero is optional — fail silently */ }
 

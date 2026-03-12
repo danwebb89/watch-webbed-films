@@ -23,29 +23,28 @@
     </nav>
   </header>
 
-  <!-- Hero: Film of the Day -->
-  <section id="hero" class="hero hidden">
-    <div class="hero-backdrop">
-      <img id="hero-img" src="" alt="">
-      <div class="hero-gradient"></div>
-    </div>
-    <div class="hero-content">
-      <p class="hero-label">// Film of the Day</p>
-      <h1 id="hero-title" class="hero-title"></h1>
-      <p id="hero-meta" class="hero-meta"></p>
-      <a id="hero-link" href="#" class="btn hero-btn">Watch Now</a>
-    </div>
-  </section>
-
   <div class="page-content">
+
+    <!-- Hero: Film of the Day -->
+    <section id="hero" class="hero-screen hidden">
+      <a id="hero-link" href="#" class="hero-screen-link">
+        <div class="hero-screen-frame">
+          <img id="hero-img" src="" alt="">
+          <div class="hero-screen-play">
+            <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </div>
+        <div class="hero-screen-info">
+          <p class="hero-label">// Film of the Day</p>
+          <h2 id="hero-title" class="hero-screen-title"></h2>
+          <p id="hero-meta" class="hero-screen-meta"></p>
+        </div>
+      </a>
+    </section>
+
     <div class="film-strip">
       <div class="film-strip-holes"></div>
     </div>
-
-    <section class="page-title">
-      <h1>Films</h1>
-      <p class="subtitle">// Selected Works</p>
-    </section>
 
     <nav id="category-filter" class="category-filter">
       <button class="cat-btn active" data-cat="all">All</button>
@@ -55,13 +54,6 @@
       <button class="cat-btn" data-cat="Feature Films">Feature Films</button>
       <button class="cat-btn" data-cat="Corporate">Corporate</button>
     </nav>
-    <div class="category-links">
-      <a href="/category/originals" class="cat-link">Originals</a>
-      <a href="/category/documentary" class="cat-link">Documentary</a>
-      <a href="/category/short-films" class="cat-link">Short Films</a>
-      <a href="/category/feature-films" class="cat-link">Feature Films</a>
-      <a href="/category/corporate" class="cat-link">Corporate</a>
-    </div>
 
     <main id="film-grid" class="film-grid">
       <!-- Populated by JS -->
