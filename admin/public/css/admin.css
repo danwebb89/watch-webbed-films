@@ -1,17 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@300;400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inter:wght@200;300;400;500&family=Cinzel:wght@300;400;500&family=JetBrains+Mono:wght@300;400&display=swap');
 
 :root {
   --bg: #0a0a0a;
   --bg-surface: #111;
   --bg-elevated: #1a1a1a;
-  --border: #222;
+  --border: rgba(255, 255, 255, 0.08);
   --text: #f0ede8;
-  --text-muted: #777;
+  --text-muted: rgba(240, 237, 232, 0.45);
   --gold: #c8a96e;
-  --gold-dim: #c8a96e33;
+  --gold-dim: rgba(200, 169, 110, 0.12);
   --red: #e05555;
   --green: #5ec269;
   --font: Inter, "DM Sans", sans-serif;
+  --font-heading: 'Cinzel', serif;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
   --mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 }
 
@@ -30,6 +32,7 @@ body {
   font-weight: 300;
   line-height: 1.5;
   min-height: 100vh;
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(200,169,110,0.03) 0%, transparent 60%);
 }
 
 /* ---- LOGIN ---- */
@@ -39,17 +42,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: radial-gradient(ellipse at 50% 30%, rgba(200,169,110,0.04) 0%, transparent 70%);
 }
 
 .login-box {
   text-align: center;
-  width: 320px;
+  width: 340px;
+  border: 1px solid var(--border);
+  border-top: 1px solid rgba(200, 169, 110, 0.25);
+  padding: 48px 36px;
+  background: var(--bg-surface);
 }
 
 .login-box .wordmark {
-  font-weight: 500;
-  font-size: 18px;
-  letter-spacing: 4px;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 20px;
+  letter-spacing: 6px;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -60,8 +69,8 @@ body {
 
 .login-label {
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--gold);
+  font-size: 9px;
+  color: var(--text-muted);
   letter-spacing: 2px;
   margin-bottom: 32px;
 }
@@ -122,12 +131,19 @@ body {
   justify-content: space-between;
   padding: 20px 32px;
   border-bottom: 1px solid var(--border);
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .admin-header .wordmark {
-  font-weight: 500;
+  font-family: var(--font-heading);
+  font-weight: 400;
   font-size: 14px;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   text-transform: uppercase;
 }
 
@@ -168,23 +184,24 @@ body {
   display: flex;
   border-bottom: 1px solid var(--border);
   padding: 0 32px;
+  background: rgba(17, 17, 17, 0.5);
 }
 
 .admin-tab {
   padding: 14px 24px;
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-size: 10px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-muted);
   cursor: pointer;
   border: none;
   background: none;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+  border-bottom: 1px solid transparent;
+  transition: color 0.3s, border-color 0.3s;
 }
 
-.admin-tab:hover { color: var(--text); }
+.admin-tab:hover { color: rgba(240, 237, 232, 0.7); }
 .admin-tab.active {
   color: var(--gold);
   border-bottom-color: var(--gold);
@@ -210,9 +227,10 @@ body {
 }
 
 .section-head h2 {
+  font-family: var(--font-heading);
   font-weight: 300;
-  font-size: 20px;
-  letter-spacing: 0.08em;
+  font-size: 18px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -318,7 +336,7 @@ body {
 }
 
 .data-table tr:hover td {
-  background: var(--bg-surface);
+  background: rgba(200, 169, 110, 0.03);
 }
 
 .status-active {
@@ -397,7 +415,9 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -417,9 +437,10 @@ body {
 }
 
 .modal h3 {
+  font-family: var(--font-heading);
   font-weight: 300;
-  font-size: 18px;
-  letter-spacing: 0.06em;
+  font-size: 16px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   margin-bottom: 24px;
 }
@@ -715,4 +736,18 @@ body {
 .toast.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ---- SCROLLBAR ---- */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ---- SELECTION ---- */
+
+::selection {
+  background: rgba(200, 169, 110, 0.3);
+  color: var(--text);
 }
