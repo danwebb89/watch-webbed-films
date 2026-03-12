@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch {}
   }
 
-  // ---- Render masonry cards ----
+  // ---- Render film cards ----
   function renderFilms(films) {
     if (films.length === 0) {
       grid.innerHTML = '<div class="empty-state"><p>// No films yet</p></div>';
@@ -167,31 +167,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cta = locked ? '<span class="card-cta" style="color:var(--color-muted)">REQUEST ACCESS</span>' : '<span class="card-cta">WATCH ▶</span>';
       return `
       <div class="portfolio-card${locked ? ' portfolio-card-locked' : ''}" data-slug="${film.slug}" data-title="${film.title}" data-locked="${locked}">
-        <div class="card-thumb">
-          <img src="${film.thumbnail}" alt="${film.title}" loading="lazy" onerror="this.style.display='none'">
-          ${lockIcon}
-        </div>
-        <div class="card-overlay">
-          <div class="card-overlay-title">${film.title}</div>
-          <div class="card-overlay-meta">${film.category} — ${film.year}</div>
+        ${lockIcon}
+        <img class="card-poster" src="${film.thumbnail}" alt="${film.title}">
+        <div class="card-info">
+          <div class="card-info-title">${film.title}</div>
+          <div class="card-info-meta">${film.category} — ${film.year}</div>
           ${cta}
         </div>
       </div>`;
     }).join('');
-
-    // Scroll-in animation
-    observeCards();
 
     // Card interactions
     grid.querySelectorAll('.portfolio-card').forEach(card => {
       const slug = card.dataset.slug;
       const film = films.find(f => f.slug === slug);
 
-      // Hover → update monitor
       card.addEventListener('mouseenter', () => { if (film) hoverCard(film); });
       card.addEventListener('mouseleave', leaveCard);
 
-      // Click
       card.addEventListener('click', (e) => {
         e.preventDefault();
         if (card.dataset.locked === 'true') {
@@ -201,38 +194,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
-  }
-
-  // ---- Scroll-in observer ----
-  function observeCards() {
-    const cards = grid.querySelectorAll('.portfolio-card');
-
-    if (!('IntersectionObserver' in window)) {
-      cards.forEach(c => c.classList.add('is-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.05, rootMargin: '200px' });
-
-    requestAnimationFrame(() => {
-      cards.forEach(card => observer.observe(card));
-    });
-
-    // Fallback: force visible after 1.5s
-    setTimeout(() => {
-      cards.forEach(card => {
-        if (!card.classList.contains('is-visible')) {
-          card.classList.add('is-visible');
-        }
-      });
-    }, 1500);
   }
 
   // ---- Password modal ----
