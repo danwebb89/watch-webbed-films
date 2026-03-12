@@ -69,7 +69,7 @@ function init(dataDir) {
   }
 
   // Migrate existing projects with video into project_versions
-  const projects = db.prepare('SELECT uuid, video FROM projects WHERE video != ""').all();
+  const projects = db.prepare("SELECT uuid, video FROM projects WHERE video != ''").all();
   for (const p of projects) {
     const existing = db.prepare('SELECT id FROM project_versions WHERE project_uuid = ?').get(p.uuid);
     if (!existing) {
