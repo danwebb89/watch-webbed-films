@@ -439,6 +439,7 @@ app.get('/api/films', requireAuth, (req, res) => {
 app.post('/api/films', requireAuth, (req, res) => {
   const films = readFilms();
   const { title, slug, category, year, description, thumbnail, video } = req.body;
+  const isPublic = req.body.public !== undefined ? req.body.public : true;
   if (!title || !slug) return res.status(400).json({ error: 'Title and slug required' });
   if (films.find(f => f.slug === slug)) return res.status(409).json({ error: 'Slug already exists' });
 
@@ -450,7 +451,7 @@ app.post('/api/films', requireAuth, (req, res) => {
     description: description || '',
     thumbnail: thumbnail || '',
     video: video || '',
-    public: true
+    public: isPublic
   };
 
   films.push(film);
