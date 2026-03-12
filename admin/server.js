@@ -210,8 +210,15 @@ app.post('/api/logout', (req, res) => {
 
 // ---- Static files ----
 
-// Serve admin UI
-app.use('/admin-assets', express.static(path.join(__dirname, 'public')));
+// Serve admin UI (no cache — always get latest)
+app.use('/admin-assets', express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  }
+}));
 
 // Serve public site
 app.use(express.static(PUBLIC_DIR));
