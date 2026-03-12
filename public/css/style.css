@@ -377,6 +377,8 @@ a {
   gap: 10px;
   flex-wrap: wrap;
   padding: 40px 24px 48px;
+  position: relative;
+  z-index: 2;
 }
 
 .filter-pill {
@@ -489,6 +491,7 @@ a {
   transition: opacity 0.5s ease, transform 0.5s ease;
   text-decoration: none;
   color: inherit;
+  overflow: hidden;
 }
 
 .portfolio-card.is-visible {
@@ -522,9 +525,9 @@ a {
 
 .card-thumb img {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: -10%;
+  width: 120%;
+  height: 120%;
   object-fit: cover;
   display: block;
   transition: transform 0.4s ease;
@@ -577,9 +580,9 @@ a {
 
 .card-cta {
   font-family: var(--font-ui);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--color-gold);
 }

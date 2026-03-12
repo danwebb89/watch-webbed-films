@@ -110,33 +110,74 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
 }
 
 async function generateThumbnail(videoPath, thumbName) {
-  return new Promise(async (resolve) => {
-    // Get duration to grab frame at 25%
-    const duration = await probeFor(videoPath);
-    const seekTo = duration > 0 ? Math.max(1, Math.floor(duration * 0.25)) : 2;
-    const outputPath = path.join(THUMB_DIR, thumbName);
+  const duration = await probeFor(videoPath);
+  const outputPath = path.join(THUMB_DIR, thumbName);
 
-    const args = [
-      '-ss', String(seekTo),
-      '-i', videoPath,
-      '-vframes', '1',
-      '-q:v', '2',
-      '-y',
-      outputPath
-    ];
+  // Generate 5 candidates at different points and pick the best one
+  const percentages = [0.15, 0.30, 0.45, 0.60, 0.75];
+  const candidates = [];
 
-    const proc = spawn('ffmpeg', args);
-    proc.on('close', (code) => {
-      if (code === 0) {
-        console.log(`[Thumbnail] Generated: ${thumbName}`);
-        resolve(`/assets/thumbs/${thumbName}`);
-      } else {
-        console.log(`[Thumbnail] Failed for ${thumbName} (code ${code})`);
-        resolve(null);
-      }
+  for (let i = 0; i < percentages.length; i++) {
+    const seekTo = duration > 0 ? Math.max(1, Math.floor(duration * percentages[i])) : 2;
+    const candidatePath = path.join(THUMB_DIR, `_candidate_${i}_${thumbName}`);
+
+    const ok = await new Promise((resolve) => {
+      const proc = spawn('ffmpeg', [
+        '-ss', String(seekTo),
+        '-i', videoPath,
+        '-vframes', '1',
+        '-q:v', '2',
+        '-y',
+        candidatePath
+      ]);
+      proc.on('close', (code) => resolve(code === 0));
+      proc.on('error', () => resolve(false));
     });
-    proc.on('error', () => resolve(null));
-  });
+
+    if (ok) {
+      try {
+        const stat = fs.statSync(candidatePath);
+        // Use ffprobe to get average brightness (signalstats)
+        const brightness = await probeFrameBrightness(candidatePath);
+        candidates.push({ path: candidatePath, size: stat.size, pct: percentages[i], brightness });
+      } catch {}
+    }
+  }
+
+  if (candidates.length === 0) {
+    console.log(`[Thumbnail] Failed for ${thumbName} — no candidates`);
+    return null;
+  }
+
+  // Score each candidate: prefer medium brightness (not too dark/bright) + larger file size (more detail)
+  for (const c of candidates) {
+    // Brightness score: 0-1, peaks at ~110 (good midtone exposure), penalise extremes
+    const brightTarget = 110;
+    const brightDist = Math.abs(c.brightness - brightTarget);
+    c.brightScore = Math.max(0, 1 - brightDist / 128);
+    // Size score: normalised 0-1 relative to largest
+    c.sizeNorm = c.size;
+  }
+  const maxSize = Math.max(...candidates.map(c => c.sizeNorm));
+  for (const c of candidates) {
+    c.sizeScore = maxSize > 0 ? c.sizeNorm / maxSize : 0;
+    // Combined: 60% brightness quality, 40% detail/size
+    c.score = c.brightScore * 0.6 + c.sizeScore * 0.4;
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+
+  // Move winner to final path, clean up all candidates
+  fs.renameSync(best.path, outputPath);
+  for (const c of candidates) {
+    if (c !== best) {
+      try { fs.unlinkSync(c.path); } catch {}
+    }
+  }
+
+  console.log(`[Thumbnail] Generated: ${thumbName} (best at ${Math.round(best.pct * 100)}%, brightness=${best.brightness.toFixed(0)}, score=${best.score.toFixed(2)})`);
+  return `/assets/thumbs/${thumbName}`;
 }
 
 async function probeEnabled() {
@@ -159,6 +200,27 @@ async function probeFor(filePath) {
     proc.stdout.on('data', d => out += d);
     proc.on('close', () => resolve(parseFloat(out) || 0));
     proc.on('error', () => resolve(0));
+  });
+}
+
+// Probe average brightness of an image (0-255) using ffmpeg signalstats
+async function probeFrameBrightness(imagePath) {
+  return new Promise((resolve) => {
+    const proc = spawn('ffmpeg', [
+      '-i', imagePath,
+      '-vf', 'signalstats',
+      '-f', 'null',
+      '-v', 'info',
+      '-'
+    ]);
+    let stderr = '';
+    proc.stderr.on('data', d => stderr += d);
+    proc.on('close', () => {
+      // Parse YAVG from signalstats output
+      const match = stderr.match(/YAVG:(\d+\.?\d*)/);
+      resolve(match ? parseFloat(match[1]) : 128);
+    });
+    proc.on('error', () => resolve(128));
   });
 }
 

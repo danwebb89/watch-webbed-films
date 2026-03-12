@@ -966,17 +966,21 @@ body {
 }
 
 .checkbox-label {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 10px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 300;
   color: var(--text-muted);
+  letter-spacing: normal;
+  text-transform: none;
+  margin-bottom: 0;
 }
 
 .checkbox-label input[type="checkbox"] {
   appearance: none;
-  width: 16px;
+  width: 16px !important;
   height: 16px;
   border: 1px solid var(--border);
   border-radius: 2px;
@@ -984,6 +988,7 @@ body {
   cursor: pointer;
   flex-shrink: 0;
   position: relative;
+  padding: 0;
 }
 
 .checkbox-label input[type="checkbox"]:checked {

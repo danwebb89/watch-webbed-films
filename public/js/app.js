@@ -81,7 +81,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cat = document.getElementById('hover-cat');
     const title = document.getElementById('hover-title');
     const sub = document.getElementById('hover-subtitle');
-    if (cat) { cat.textContent = film.category || ''; cat.style.color = '#c8a96e'; }
+    if (cat) {
+      // Singularize category for individual film display
+      let catText = film.category || '';
+      if (catText.endsWith(' Films')) catText = catText.replace(/ Films$/, ' Film');
+      cat.textContent = catText; cat.style.color = '#c8a96e';
+    }
     if (title) title.textContent = film.title;
     if (sub) sub.textContent = 'WATCH ▶';
     document.getElementById('monitor-hover').style.opacity = '1';

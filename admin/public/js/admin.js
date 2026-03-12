@@ -39,13 +39,51 @@ function closeModal(id) {
   if (id === 'version-modal') clearVersionTranscode();
 }
 
+// Background transcode tracking
+let bgTranscodeId = null;
+let bgTranscodeInterval = null;
+let bgTranscodeFilename = null;
+
 function clearModalTranscode() {
-  if (modalTranscodeInterval) {
+  // If a transcode is actively running, move it to background instead of cancelling
+  if (modalTranscodeInterval && modalTranscodeId) {
+    bgTranscodeId = modalTranscodeId;
+    bgTranscodeFilename = null; // already set in pollModalTranscode
+    // Keep polling in background
+    clearInterval(modalTranscodeInterval);
+    modalTranscodeInterval = null;
+    startBgTranscodePoll();
+    toast('Transcoding in background...');
+  } else if (modalTranscodeInterval) {
     clearInterval(modalTranscodeInterval);
     modalTranscodeInterval = null;
   }
   modalTranscodeId = null;
   modalVideoPath = null;
+}
+
+function startBgTranscodePoll() {
+  if (bgTranscodeInterval) clearInterval(bgTranscodeInterval);
+  bgTranscodeInterval = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/transcode/${bgTranscodeId}`);
+      const job = await res.json();
+      if (job.status === 'done') {
+        clearInterval(bgTranscodeInterval);
+        bgTranscodeInterval = null;
+        toast('Transcode complete — open Films to save');
+        bgTranscodeId = null;
+      } else if (job.status === 'error') {
+        clearInterval(bgTranscodeInterval);
+        bgTranscodeInterval = null;
+        toast('Background transcode failed: ' + (job.error || 'unknown'));
+        bgTranscodeId = null;
+      }
+    } catch {
+      clearInterval(bgTranscodeInterval);
+      bgTranscodeInterval = null;
+    }
+  }, 3000);
 }
 
 function clearVersionTranscode() {
