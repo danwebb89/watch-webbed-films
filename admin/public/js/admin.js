@@ -206,6 +206,7 @@ function pollModalTranscode(jobId, filename) {
       if (job.status === 'done') {
         clearInterval(modalTranscodeInterval);
         modalTranscodeInterval = null;
+        filmSubmitBtn.disabled = false;
 
         // Get the output path from the job
         const videoName = filename.replace(/\.[^.]+$/, '') + '.mp4';
@@ -214,14 +215,11 @@ function pollModalTranscode(jobId, filename) {
 
         filmProgressFilled.style.width = '100%';
         filmProgressFilled.classList.add('progress-done');
-        filmProgressText.textContent = 'Ready';
-        filmSubmitBtn.disabled = false;
+        filmProgressText.textContent = 'Saving...';
 
-        // Reload files so thumb is available
-        loadVideoFiles();
-        loadThumbFiles();
-
-        toast(`Transcode complete: ${filename}`);
+        // Reload files so thumb is available, then auto-save
+        await loadThumbFiles();
+        await autoSaveFilm();
 
       } else if (job.status === 'error') {
         clearInterval(modalTranscodeInterval);
@@ -430,6 +428,13 @@ document.getElementById('film-slug').addEventListener('input', function() {
   this.dataset.manual = '1';
 });
 
+// ---- Auto-save film after transcode ----
+async function autoSaveFilm() {
+  // Programmatically submit the form
+  const form = document.getElementById('film-form');
+  form.requestSubmit();
+}
+
 // ---- Film Form Submit ----
 document.getElementById('film-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -472,11 +477,17 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
   });
 
   if (res.ok) {
-    closeModal('film-modal');
+    filmProgressFilled.style.width = '100%';
+    filmProgressFilled.classList.add('progress-done');
+    filmProgressText.textContent = 'Done ✓';
     toast(isEdit ? 'Film updated' : 'Film added');
     loadFilms();
+    // Close modal after a brief pause so user sees "Done ✓"
+    setTimeout(() => closeModal('film-modal'), 800);
   } else {
     const err = await res.json();
+    filmProgressText.textContent = err.error || 'Error saving film';
+    filmProgressFilled.classList.add('progress-error');
     toast(err.error || (isEdit ? 'Error updating film' : 'Error adding film'));
   }
 });
