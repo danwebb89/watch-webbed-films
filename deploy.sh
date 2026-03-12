@@ -16,7 +16,7 @@ git push
 
 # --- Remote: pull & restart ---
 echo "==> Pulling on Unraid and restarting container..."
-ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $APP_DIR && git pull && docker restart $CONTAINER"
+ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $APP_DIR && git pull && docker-compose up -d --build"
 
 # --- Cloudflare cache purge ---
 if [ -n "${CF_API_TOKEN:-}" ]; then
