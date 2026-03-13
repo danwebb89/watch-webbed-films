@@ -485,7 +485,7 @@ const chunkUpload = multer({
       cb(null, `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     }
   }),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB per chunk
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB per chunk
 });
 
 app.post('/api/upload/video-chunk', requireAuth, chunkUpload.single('chunk'), (req, res) => {
@@ -521,8 +521,12 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
 
     for (const chunkFile of chunkFiles) {
       const chunkPath = path.join(CHUNKS_DIR, chunkFile);
-      const data = fs.readFileSync(chunkPath);
-      writeStream.write(data);
+      await new Promise((resolve, reject) => {
+        const readStream = fs.createReadStream(chunkPath);
+        readStream.on('error', reject);
+        readStream.on('end', resolve);
+        readStream.pipe(writeStream, { end: false });
+      });
     }
 
     await new Promise((resolve, reject) => {
