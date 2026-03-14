@@ -210,50 +210,78 @@ function loadVideo(videoPath, onMetaCallback) {
   initPlayer(document.getElementById('player-wrap'));
 }
 
-// ---- Related Films (smart matching) ----
+// ---- Related Films (smart series detection) ----
+
+// Extract the "series name" from a title by stripping suffixes, separators, and noise
+// e.g. "IN NAM 23: Lanzarote" → "in nam"
+//      "GiveStar All Stars: Wild Waves" → "givestar all stars"
+//      "The Professionals - Episode 3" → "the professionals"
+//      "Hello Student: Promo Film" → "hello student"
+//      "Shackleton Brand Film V4 (2160p)" → "shackleton"
+function extractSeriesName(title) {
+  let t = (title || '').trim();
+  // Strip quality/version tags in parens/brackets
+  t = t.replace(/\s*[\(\[](2160p|1080p|720p|4K|UHD|V\d+)[\)\]]\s*/gi, '').trim();
+  // Split on ": " or " - " (series separator)
+  const colonIdx = t.indexOf(': ');
+  const dashIdx = t.indexOf(' - ');
+  let splitIdx = -1;
+  if (colonIdx >= 0 && dashIdx >= 0) splitIdx = Math.min(colonIdx, dashIdx);
+  else if (colonIdx >= 0) splitIdx = colonIdx;
+  else if (dashIdx >= 0) splitIdx = dashIdx;
+  if (splitIdx > 0) t = t.substring(0, splitIdx).trim();
+  // Strip trailing numbers (series/year identifiers like "IN NAM 23" → "IN NAM")
+  t = t.replace(/\s+\d+$/, '').trim();
+  // Strip generic film-type suffixes
+  t = t.replace(/\s+(Brand Film|Promo Film|Company Film|Campaign Film|Identity Film|Pitch|Launch|Event Film)$/i, '').trim();
+  return t.toLowerCase();
+}
+
 async function loadRelatedFilms(currentFilm) {
   try {
     const res = await fetch('/api/public/films');
     if (!res.ok) return;
     const allFilms = await res.json();
 
-    // Extract meaningful words from a title (skip common words)
-    const stopWords = new Set(['the','a','an','of','in','on','at','to','and','or','for','is','it','my','by']);
-    function titleWords(title) {
-      return (title || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/)
-        .filter(w => w.length > 1 && !stopWords.has(w));
-    }
-
-    const currentWords = titleWords(currentFilm.title);
+    const currentSeries = extractSeriesName(currentFilm.title);
     const currentYear = parseInt(currentFilm.year) || 0;
 
-    // Score each film for relevance
     const scored = allFilms
       .filter(f => f.slug !== currentFilm.slug)
       .map(f => {
         let score = 0;
+        let isSeries = false;
+        const fSeries = extractSeriesName(f.title);
 
-        // Same category: strong signal
-        if (f.category && f.category === currentFilm.category) score += 10;
-
-        // Title word overlap: detects series, sequels, related works
-        const fWords = titleWords(f.title);
-        let wordOverlap = 0;
-        for (const w of fWords) {
-          if (currentWords.includes(w)) wordOverlap++;
+        // Exact series match (strongest signal)
+        // e.g. "in nam" === "in nam", "the professionals" === "the professionals"
+        if (currentSeries.length >= 3 && fSeries === currentSeries) {
+          score += 25;
+          isSeries = true;
         }
-        score += wordOverlap * 5;
+        // One series name starts with the other (handles parent/child brands)
+        // e.g. "givestar" matches "givestar all stars"
+        else if (currentSeries.length >= 4 && fSeries.length >= 4) {
+          if (fSeries.startsWith(currentSeries) || currentSeries.startsWith(fSeries)) {
+            score += 18;
+            isSeries = true;
+          }
+        }
 
-        // Year proximity: prefer films from a similar era
+        // Same category (secondary signal)
+        if (f.category && f.category === currentFilm.category) {
+          score += isSeries ? 3 : 8;
+        }
+
+        // Year proximity (weak tiebreaker)
         const fYear = parseInt(f.year) || 0;
         if (currentYear && fYear) {
           const yearDiff = Math.abs(currentYear - fYear);
-          if (yearDiff <= 1) score += 4;
-          else if (yearDiff <= 3) score += 2;
-          else if (yearDiff <= 5) score += 1;
+          if (yearDiff <= 1) score += 2;
+          else if (yearDiff <= 3) score += 1;
         }
 
-        return { film: f, score };
+        return { film: f, score, isSeries };
       })
       .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -261,13 +289,17 @@ async function loadRelatedFilms(currentFilm) {
 
     if (scored.length === 0) return;
 
-    // Determine section title based on what matched
-    const topMatch = scored[0];
-    let sectionTitle = 'More Films';
-    if (scored.every(s => s.film.category === currentFilm.category)) {
+    // Smart section title
+    const hasSeries = scored.some(s => s.isSeries);
+    let sectionTitle;
+    if (hasSeries) {
+      // Use the series name as the header
+      const seriesDisplay = extractSeriesName(currentFilm.title);
+      // Capitalise nicely
+      const pretty = seriesDisplay.replace(/\b\w/g, c => c.toUpperCase());
+      sectionTitle = `More from ${pretty}`;
+    } else if (scored.every(s => s.film.category === currentFilm.category)) {
       sectionTitle = `More ${currentFilm.category}`;
-    } else if (topMatch.score >= 15) {
-      sectionTitle = 'Related Films';
     } else {
       sectionTitle = 'You Might Also Like';
     }

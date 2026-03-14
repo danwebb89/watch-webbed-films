@@ -207,28 +207,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch {}
   }
 
-  // ---- Render helpers ----
-  function cardHTML(film) {
-    const locked = film.password_protected && !isUnlocked(film.slug);
-    const lockIcon = locked ? `<div class="card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
-    const cta = locked
-      ? '<span class="browse-overlay-cta" style="color:var(--color-muted)">REQUEST ACCESS</span>'
-      : '<span class="browse-overlay-cta">WATCH ▶</span>';
-    return `
-    <div class="browse-card${locked ? ' browse-card-locked' : ''}" data-slug="${film.slug}" data-title="${film.title}" data-locked="${locked}">
-      ${lockIcon}
-      <div class="browse-thumb">
-        <img src="${film.thumbnail}" alt="${film.title}" loading="lazy">
-      </div>
-      <div class="browse-overlay">
-        <span class="browse-overlay-title">${film.title}</span>
-        ${cta}
-      </div>
-    </div>`;
-  }
+  // ---- Render film cards (browse-card style) ----
+  function renderFilms(films) {
+    if (films.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><p>// No films yet</p></div>';
+      grid.className = 'browse-grid';
+      return;
+    }
+    grid.className = 'browse-grid';
+    grid.innerHTML = films.map(film => {
+      const locked = film.password_protected && !isUnlocked(film.slug);
+      const lockIcon = locked ? `<div class="card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
+      const cta = locked
+        ? '<span class="browse-overlay-cta" style="color:var(--color-muted)">REQUEST ACCESS</span>'
+        : '<span class="browse-overlay-cta">WATCH ▶</span>';
+      return `
+      <div class="browse-card${locked ? ' browse-card-locked' : ''}" data-slug="${film.slug}" data-title="${film.title}" data-locked="${locked}">
+        ${lockIcon}
+        <div class="browse-thumb">
+          <img src="${film.thumbnail}" alt="${film.title}" loading="lazy">
+        </div>
+        <div class="browse-overlay">
+          <span class="browse-overlay-title">${film.title}</span>
+          ${cta}
+        </div>
+      </div>`;
+    }).join('');
 
-  function bindCardClicks(container, films) {
-    container.querySelectorAll('.browse-card').forEach(card => {
+    // Card interactions
+    grid.querySelectorAll('.browse-card').forEach(card => {
       const slug = card.dataset.slug;
       card.addEventListener('click', (e) => {
         e.preventDefault();
@@ -239,48 +246,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
-  }
-
-  // ---- Render film cards ----
-  function renderFilms(films) {
-    if (films.length === 0) {
-      grid.innerHTML = '<div class="empty-state"><p>// No films yet</p></div>';
-      grid.className = 'browse-grid';
-      return;
-    }
-
-    const searchQuery = searchInput ? searchInput.value.trim() : '';
-    const isFiltered = activeCategory !== 'all' || searchQuery;
-
-    if (isFiltered) {
-      // Flat grid when searching or filtering by category
-      grid.className = 'browse-grid';
-      grid.innerHTML = films.map(film => cardHTML(film)).join('');
-    } else {
-      // Category carousels view
-      const catMap = {};
-      films.forEach(f => {
-        const cat = f.category || 'Other';
-        if (!catMap[cat]) catMap[cat] = [];
-        catMap[cat].push(f);
-      });
-
-      grid.className = '';
-      grid.innerHTML = Object.entries(catMap).map(([cat, catFilms]) => `
-        <div class="category-row">
-          <div class="category-row-header">
-            <span class="category-row-title">${cat}</span>
-            <span class="category-row-line"></span>
-            <span class="category-row-count">${catFilms.length}</span>
-          </div>
-          <div class="carousel-track">
-            ${catFilms.map(film => cardHTML(film)).join('')}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    bindCardClicks(grid, films);
   }
 
   // ---- Password modal ----
