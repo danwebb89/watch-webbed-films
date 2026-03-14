@@ -457,17 +457,27 @@ function applyAdminFilters() {
   const searchInput = document.getElementById('films-search');
   const query = searchInput ? searchInput.value : '';
   let films = allAdminFilms;
-  if (adminPrivacyFilter === 'public') films = films.filter(f => f.public);
+  if (adminPrivacyFilter === 'public') films = films.filter(f => f.public && !f.password_hash);
   else if (adminPrivacyFilter === 'client') films = films.filter(f => !f.public);
-  else if (adminPrivacyFilter === 'locked') films = films.filter(f => f.password_hash);
+  else if (adminPrivacyFilter === 'password') films = films.filter(f => f.password_hash);
+  else if (adminPrivacyFilter === 'no-password') films = films.filter(f => f.public && !f.password_hash);
   renderAdminFilms(films, query);
 }
 
 function renderAdminFilters() {
   const container = document.getElementById('admin-privacy-filters');
   if (!container) return;
-  container.innerHTML = ['all', 'public', 'client', 'locked'].map(f =>
-    `<button class="admin-privacy-btn${adminPrivacyFilter === f ? ' active' : ''}" data-filter="${f}">${f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>`
+  const pwCount = allAdminFilms.filter(f => f.password_hash).length;
+  const noPwCount = allAdminFilms.filter(f => f.public && !f.password_hash).length;
+  const clientCount = allAdminFilms.filter(f => !f.public).length;
+  const filters = [
+    { key: 'all', label: `All (${allAdminFilms.length})` },
+    { key: 'public', label: `Public (${noPwCount})` },
+    { key: 'password', label: `Password Protected (${pwCount})` },
+    { key: 'client', label: `Client Only (${clientCount})` },
+  ];
+  container.innerHTML = filters.map(f =>
+    `<button class="admin-privacy-btn${adminPrivacyFilter === f.key ? ' active' : ''}" data-filter="${f.key}">${f.label}</button>`
   ).join('');
   container.querySelectorAll('.admin-privacy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
