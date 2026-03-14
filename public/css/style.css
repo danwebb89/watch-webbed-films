@@ -186,7 +186,7 @@ a {
 
 @keyframes ken-burns {
   0% { transform: scale(1); }
-  100% { transform: scale(1.03) translate(-0.4%, -0.2%); }
+  100% { transform: scale(1.08) translate(-1%, -0.5%); }
 }
 .monitor-thumb {
   position: absolute; inset: -15%;
