@@ -152,8 +152,12 @@ function featuredFilm() {
     const any = getDb().prepare('SELECT * FROM films WHERE public = 1 ORDER BY id DESC LIMIT 1').get();
     return any ? { ...any, public: true, eligible_for_featured: !!any.eligible_for_featured } : null;
   }
-  // Use day-of-year to rotate deterministically
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  // Use London date to rotate at midnight UK time
+  const londonDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }); // YYYY-MM-DD
+  const [y, m, d] = londonDate.split('-').map(Number);
+  const start = new Date(y, 0, 0);
+  const diff = new Date(y, m - 1, d) - start;
+  const dayOfYear = Math.floor(diff / 86400000);
   const pick = eligible[dayOfYear % eligible.length];
   return { ...pick, public: true, eligible_for_featured: true };
 }

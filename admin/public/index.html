@@ -10,7 +10,7 @@
 <body>
   <header class="admin-header">
     <div style="display:flex;align-items:center;gap:14px;">
-      <a href="/admin" onclick="event.preventDefault(); showSection('home')"><img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="admin-logo"></a>
+      <a href="https://watch.webbedfilms.com"><img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="admin-logo"></a>
       <span class="tag">// Admin</span>
     </div>
     <div class="admin-header-right">
@@ -49,7 +49,10 @@
       <button class="back-btn" onclick="showSection('home')">&#8592; Back</button>
       <div class="section-head">
         <h2>Films</h2>
-        <button class="btn-add-pill" id="btn-add-film">+ Add Film</button>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="text" id="films-search" placeholder="Search films..." class="films-search-input">
+          <button class="btn-add-pill" id="btn-add-film">+ Add Film</button>
+        </div>
       </div>
       <div id="films-list"></div>
     </div>

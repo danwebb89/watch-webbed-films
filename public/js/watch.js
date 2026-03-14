@@ -26,11 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Insert duration from video once metadata loads
     function insertDuration(videoEl) {
       videoEl.addEventListener('loadedmetadata', () => {
-        const secs = Math.round(videoEl.duration);
-        if (!secs || secs <= 0) return;
-        const mins = Math.floor(secs / 60);
-        const rem = secs % 60;
-        const durationText = mins > 0 ? `${mins} min ${rem > 0 ? rem + ' sec' : ''}`.trim() : `${rem} sec`;
+        const totalSecs = Math.round(videoEl.duration);
+        if (!totalSecs || totalSecs <= 0) return;
+        const roundedMins = Math.round(totalSecs / 60);
+        const durationText = roundedMins > 0 ? `${roundedMins} min` : '< 1 min';
         const durationSpan = document.createElement('span');
         durationSpan.textContent = durationText;
         // Insert after category

@@ -437,9 +437,20 @@ async function loadThumbFiles() {
 }
 
 // ---- Films ----
+let allAdminFilms = [];
+
 async function loadFilms() {
   const res = await fetch('/api/films');
-  const films = await res.json();
+  allAdminFilms = await res.json();
+  const searchInput = document.getElementById('films-search');
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.oninput = () => renderAdminFilms(allAdminFilms, searchInput.value);
+  }
+  renderAdminFilms(allAdminFilms, '');
+}
+
+function renderAdminFilms(films, query) {
   const el = document.getElementById('films-list');
 
   if (films.length === 0) {
@@ -447,9 +458,65 @@ async function loadFilms() {
     return;
   }
 
+  let filtered = films;
+  if (query && query.trim()) {
+    const q = query.trim().toLowerCase();
+    filtered = films.filter(f =>
+      (f.title || '').toLowerCase().includes(q) ||
+      (f.category || '').toLowerCase().includes(q) ||
+      String(f.year).includes(q)
+    );
+  }
+
   const publicCount = films.filter(f => f.public).length;
   const clientCount = films.filter(f => !f.public).length;
   const catCount = new Set(films.map(f => f.category).filter(Boolean)).size;
+
+  // Group filtered films by category
+  const groups = {};
+  filtered.forEach(f => {
+    const cat = f.category || 'Uncategorised';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(f);
+  });
+
+  const categoryOrder = ['Feature Films', 'Short Films', 'Documentary', 'Original', 'Corporate'];
+  const sortedCats = Object.keys(groups).sort((a, b) => {
+    const ia = categoryOrder.indexOf(a);
+    const ib = categoryOrder.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  const filmCard = f => `
+    <div class="admin-film-card" onclick="editFilm('${f.slug}')">
+      <div class="admin-card-thumb">
+        ${f.thumbnail ? `<img src="${f.thumbnail}" alt="${f.title}" loading="lazy" onerror="this.style.display='none'">` : ''}
+        <div class="admin-card-badges">
+          <span class="admin-badge ${f.public ? 'badge-public' : 'badge-client'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
+          ${f.password_hash ? '<span class="admin-badge badge-locked">LOCKED</span>' : ''}
+          ${f.eligible_for_featured ? '<span class="admin-badge badge-featured">FOTD</span>' : ''}
+        </div>
+      </div>
+      <div class="admin-card-info">
+        <div class="admin-card-title">${f.title}</div>
+        <div class="admin-card-meta">${f.category || 'Uncategorised'} — ${f.year}</div>
+      </div>
+      <div class="admin-card-actions">
+        <button class="btn btn-sm" onclick="event.stopPropagation(); editFilm('${f.slug}')">Edit</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFilm('${f.slug}', ${!f.public})">${f.public ? 'Hide' : 'Show'}</button>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteFilm('${f.slug}')">Delete</button>
+      </div>
+    </div>`;
+
+  const groupsHtml = sortedCats.map(cat => `
+    <div class="admin-category-group">
+      <div class="admin-category-heading">${cat} <span class="cat-count">${groups[cat].length}</span></div>
+      <div class="admin-film-grid">${groups[cat].map(filmCard).join('')}</div>
+    </div>
+  `).join('');
 
   el.innerHTML = `
     <div class="admin-stats">
@@ -470,29 +537,7 @@ async function loadFilms() {
         <span class="stat-label">// Categories</span>
       </div>
     </div>
-    <div class="admin-film-grid">
-      ${films.map(f => `
-        <div class="admin-film-card" onclick="editFilm('${f.slug}')">
-          <div class="admin-card-thumb">
-            ${f.thumbnail ? `<img src="${f.thumbnail}" alt="${f.title}" loading="lazy" onerror="this.style.display='none'">` : ''}
-            <div class="admin-card-badges">
-              <span class="admin-badge ${f.public ? 'badge-public' : 'badge-client'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
-              ${f.password_hash ? '<span class="admin-badge badge-locked">LOCKED</span>' : ''}
-              ${f.eligible_for_featured ? '<span class="admin-badge badge-featured">FOTD</span>' : ''}
-            </div>
-          </div>
-          <div class="admin-card-info">
-            <div class="admin-card-title">${f.title}</div>
-            <div class="admin-card-meta">${f.category || 'Uncategorised'} — ${f.year}</div>
-          </div>
-          <div class="admin-card-actions">
-            <button class="btn btn-sm" onclick="event.stopPropagation(); editFilm('${f.slug}')">Edit</button>
-            <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFilm('${f.slug}', ${!f.public})">${f.public ? 'Hide' : 'Show'}</button>
-            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteFilm('${f.slug}')">Delete</button>
-          </div>
-        </div>
-      `).join('')}
-    </div>
+    ${filtered.length === 0 ? '<div class="admin-empty"><p>// No matching films</p></div>' : groupsHtml}
   `;
 }
 

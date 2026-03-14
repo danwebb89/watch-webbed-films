@@ -332,10 +332,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // ---- Daily shuffle (seeded by London date) ----
+  function dailyShuffle(arr) {
+    const shuffled = arr.slice();
+    // Seed from London date string
+    const londonDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
+    let seed = 0;
+    for (let i = 0; i < londonDate.length; i++) seed = ((seed << 5) - seed + londonDate.charCodeAt(i)) | 0;
+    // Fisher-Yates with seeded pseudo-random
+    function rand() { seed = (seed * 16807 + 0) % 2147483647; return (seed & 0x7fffffff) / 2147483647; }
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
   // ---- Load films ----
   try {
     const res = await fetch('/api/public/films');
-    allFilms = await res.json();
+    allFilms = dailyShuffle(await res.json());
     renderFilms(allFilms);
     updateStatusBar(allFilms);
   } catch (e) {
@@ -344,18 +360,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // ---- Search ----
+  let activeCategory = 'all';
+  const searchInput = document.getElementById('film-search');
+  function applyFilters() {
+    let filtered = allFilms;
+    if (activeCategory !== 'all') {
+      filtered = filtered.filter(f => f.category === activeCategory);
+    }
+    const q = (searchInput ? searchInput.value.trim().toLowerCase() : '');
+    if (q) {
+      filtered = filtered.filter(f =>
+        (f.title || '').toLowerCase().includes(q) ||
+        (f.category || '').toLowerCase().includes(q) ||
+        String(f.year).includes(q)
+      );
+    }
+    renderFilms(filtered);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', applyFilters);
+  }
+
   // ---- Category filter buttons ----
   document.querySelectorAll('.browse-filter').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.browse-filter').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
-      const cat = btn.dataset.cat;
-      if (cat === 'all') {
-        renderFilms(allFilms);
-      } else {
-        renderFilms(allFilms.filter(f => f.category === cat));
-      }
+      activeCategory = btn.dataset.cat;
+      applyFilters();
     });
   });
 
