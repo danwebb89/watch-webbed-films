@@ -186,7 +186,7 @@ a {
 
 @keyframes ken-burns {
   0% { transform: scale(1); }
-  100% { transform: scale(1.08) translate(-1%, -0.5%); }
+  100% { transform: scale(1.03) translate(-0.4%, -0.2%); }
 }
 .monitor-thumb {
   position: absolute; inset: -15%;
@@ -670,6 +670,11 @@ a {
 
 /* ---- WATCH PAGE ---- */
 
+/* Hide background video on watch pages */
+.watch-page .work-bg-video,
+.watch-page .work-bg-overlay { display: none; }
+.watch-page { background: var(--bg); }
+
 .watch-container { max-width: 1100px; margin: 0 auto; padding: 0 48px 80px; flex: 1; }
 
 .watch-title {
@@ -687,7 +692,59 @@ a {
 
 /* ---- CUSTOM VIDEO PLAYER ---- */
 
-.player-wrap { position: relative; width: 100%; max-width: 1100px; aspect-ratio: 16/9; background: #000; overflow: hidden; }
+.player-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  aspect-ratio: 16/9;
+  background: #050505;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Monitor-style corners on watch page player */
+.watch-page .player-wrap { position: relative; }
+.watch-page .player-wrap::before,
+.watch-page .player-wrap::after {
+  content: '';
+  position: absolute;
+  z-index: 25;
+  pointer-events: none;
+}
+.player-corner {
+  position: absolute;
+  width: 20px; height: 20px;
+  z-index: 25; pointer-events: none;
+}
+.player-corner::before, .player-corner::after {
+  content: '';
+  position: absolute;
+  background: rgba(200,169,110,0.5);
+}
+.player-corner::before { height: 1px; width: 100%; top: 0; left: 0; }
+.player-corner::after  { width: 1px; height: 100%; top: 0; left: 0; }
+.player-corner-tl { top: 12px; left: 12px; }
+.player-corner-tr { top: 12px; right: 12px; transform: scaleX(-1); }
+.player-corner-bl { bottom: 12px; left: 12px; transform: scaleY(-1); }
+.player-corner-br { bottom: 12px; right: 12px; transform: scale(-1); }
+
+/* Scanline + vignette overlays on watch page player */
+.player-scanlines {
+  position: absolute; inset: 0;
+  z-index: 22; pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 2px,
+    rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+  );
+  mix-blend-mode: multiply;
+}
+.player-vignette {
+  position: absolute; inset: 0;
+  z-index: 22; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+}
+
 .player-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; }
 
 .player-big-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; transition: opacity 0.3s; }
@@ -730,13 +787,13 @@ a {
 
 .clients-body { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .clients-body .page-title { text-align: center; margin-bottom: 8px; }
-.clients-body .page-title h1 { font-family: 'Cinzel', serif; font-weight: 300; font-size: clamp(20px, 3vw, 36px); letter-spacing: 0.08em; text-transform: uppercase; }
-.clients-body .subtitle { font-family: var(--mono); font-size: 11px; color: var(--color-muted); letter-spacing: 1.5px; text-transform: uppercase; }
-.screening-access { margin-top: 40px; }
+.clients-body .page-title h1 { font-family: 'Cinzel', serif; font-weight: 300; font-size: clamp(18px, 2vw, 28px); letter-spacing: 0.08em; text-transform: uppercase; }
+.clients-body .subtitle { font-family: var(--mono); font-size: 10px; color: var(--color-muted); letter-spacing: 1.2px; text-transform: uppercase; }
+.screening-access { margin-top: 32px; }
 .screening-access form { display: flex; gap: 12px; align-items: center; }
-.screening-access input { background: #111; border: 1px solid rgba(255,255,255,0.08); color: var(--text); padding: 14px 20px; font-family: var(--mono); font-size: 14px; letter-spacing: 2px; text-align: center; width: 280px; outline: none; transition: border-color 0.2s; }
+.screening-access input { background: #111; border: 1px solid rgba(255,255,255,0.08); color: var(--text); padding: 12px 18px; font-family: var(--mono); font-size: 13px; letter-spacing: 1.5px; text-align: center; width: 260px; outline: none; transition: border-color 0.2s; }
 .screening-access input:focus { border-color: var(--accent); }
-.screening-access .btn { padding: 14px 28px; }
+.screening-access .btn { padding: 12px 24px; font-size: 10px; }
 
 /* ---- BUTTONS ---- */
 

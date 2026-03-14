@@ -351,7 +351,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---- Load films ----
   try {
     const res = await fetch('/api/public/films');
-    allFilms = dailyShuffle(await res.json());
+    const rawFilms = await res.json();
+    // Shuffle within each category, then interleave categories (also shuffled)
+    const catMap = {};
+    rawFilms.forEach(f => {
+      const cat = f.category || 'Other';
+      if (!catMap[cat]) catMap[cat] = [];
+      catMap[cat].push(f);
+    });
+    const catKeys = dailyShuffle(Object.keys(catMap));
+    allFilms = [];
+    catKeys.forEach(cat => {
+      allFilms.push(...dailyShuffle(catMap[cat]));
+    });
     renderFilms(allFilms);
     updateStatusBar(allFilms);
   } catch (e) {

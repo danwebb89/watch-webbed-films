@@ -438,16 +438,44 @@ async function loadThumbFiles() {
 
 // ---- Films ----
 let allAdminFilms = [];
+let adminPrivacyFilter = 'all'; // 'all', 'public', 'client', 'locked'
 
 async function loadFilms() {
   const res = await fetch('/api/films');
   allAdminFilms = await res.json();
+  adminPrivacyFilter = 'all';
   const searchInput = document.getElementById('films-search');
   if (searchInput) {
     searchInput.value = '';
-    searchInput.oninput = () => renderAdminFilms(allAdminFilms, searchInput.value);
+    searchInput.oninput = () => applyAdminFilters();
   }
-  renderAdminFilms(allAdminFilms, '');
+  renderAdminFilters();
+  applyAdminFilters();
+}
+
+function applyAdminFilters() {
+  const searchInput = document.getElementById('films-search');
+  const query = searchInput ? searchInput.value : '';
+  let films = allAdminFilms;
+  if (adminPrivacyFilter === 'public') films = films.filter(f => f.public);
+  else if (adminPrivacyFilter === 'client') films = films.filter(f => !f.public);
+  else if (adminPrivacyFilter === 'locked') films = films.filter(f => f.password_hash);
+  renderAdminFilms(films, query);
+}
+
+function renderAdminFilters() {
+  const container = document.getElementById('admin-privacy-filters');
+  if (!container) return;
+  container.innerHTML = ['all', 'public', 'client', 'locked'].map(f =>
+    `<button class="admin-privacy-btn${adminPrivacyFilter === f ? ' active' : ''}" data-filter="${f}">${f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>`
+  ).join('');
+  container.querySelectorAll('.admin-privacy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      adminPrivacyFilter = btn.dataset.filter;
+      renderAdminFilters();
+      applyAdminFilters();
+    });
+  });
 }
 
 function renderAdminFilms(films, query) {
