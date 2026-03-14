@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
+    // Load related films
+    loadRelatedFilms(film);
+
     if (film.password_protected && !film.video) {
       // Check if already unlocked in this session (from homepage modal)
       const unlocked = JSON.parse(sessionStorage.getItem('unlocked_films') || '[]');
@@ -205,4 +208,105 @@ function loadVideo(videoPath, onMetaCallback) {
   video.src = videoPath;
   if (onMetaCallback) onMetaCallback(video);
   initPlayer(document.getElementById('player-wrap'));
+}
+
+// ---- Related Films (smart matching) ----
+async function loadRelatedFilms(currentFilm) {
+  try {
+    const res = await fetch('/api/public/films');
+    if (!res.ok) return;
+    const allFilms = await res.json();
+
+    // Extract meaningful words from a title (skip common words)
+    const stopWords = new Set(['the','a','an','of','in','on','at','to','and','or','for','is','it','my','by']);
+    function titleWords(title) {
+      return (title || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/)
+        .filter(w => w.length > 1 && !stopWords.has(w));
+    }
+
+    const currentWords = titleWords(currentFilm.title);
+    const currentYear = parseInt(currentFilm.year) || 0;
+
+    // Score each film for relevance
+    const scored = allFilms
+      .filter(f => f.slug !== currentFilm.slug)
+      .map(f => {
+        let score = 0;
+
+        // Same category: strong signal
+        if (f.category && f.category === currentFilm.category) score += 10;
+
+        // Title word overlap: detects series, sequels, related works
+        const fWords = titleWords(f.title);
+        let wordOverlap = 0;
+        for (const w of fWords) {
+          if (currentWords.includes(w)) wordOverlap++;
+        }
+        score += wordOverlap * 5;
+
+        // Year proximity: prefer films from a similar era
+        const fYear = parseInt(f.year) || 0;
+        if (currentYear && fYear) {
+          const yearDiff = Math.abs(currentYear - fYear);
+          if (yearDiff <= 1) score += 4;
+          else if (yearDiff <= 3) score += 2;
+          else if (yearDiff <= 5) score += 1;
+        }
+
+        return { film: f, score };
+      })
+      .filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+
+    if (scored.length === 0) return;
+
+    // Determine section title based on what matched
+    const topMatch = scored[0];
+    let sectionTitle = 'More Films';
+    if (scored.every(s => s.film.category === currentFilm.category)) {
+      sectionTitle = `More ${currentFilm.category}`;
+    } else if (topMatch.score >= 15) {
+      sectionTitle = 'Related Films';
+    } else {
+      sectionTitle = 'You Might Also Like';
+    }
+
+    // Render
+    const container = document.getElementById('related-films');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="related-header">
+        <span class="related-title">${sectionTitle}</span>
+        <span class="related-line"></span>
+      </div>
+      <div class="related-grid">
+        ${scored.map(s => {
+          const f = s.film;
+          const locked = f.password_protected;
+          const lockIcon = locked ? `<div class="card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
+          return `
+          <div class="browse-card${locked ? ' browse-card-locked' : ''}" data-slug="${f.slug}" style="cursor:pointer">
+            ${lockIcon}
+            <div class="browse-thumb">
+              <img src="${f.thumbnail}" alt="${f.title}" loading="lazy">
+            </div>
+            <div class="browse-overlay">
+              <span class="browse-overlay-title">${f.title}</span>
+              <span class="browse-overlay-cta">WATCH ▶</span>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+
+    container.querySelectorAll('.browse-card').forEach(card => {
+      card.addEventListener('click', () => {
+        window.location.href = `/watch.html?film=${card.dataset.slug}`;
+      });
+    });
+  } catch (e) {
+    // Related films are optional — fail silently
+  }
 }
