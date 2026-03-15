@@ -8,8 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let featuredFilm = null;
   let monitorPlaying = false; // true when hero video is playing inline
 
-  // Start monitor in idle state
-  if (monitor) monitor.classList.add('is-idle');
+  // Monitor starts full-size; collapses to idle only if no featured film
 
   // Noise canvas
   (function initNoise() {
@@ -67,10 +66,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!film || !film.thumbnail) return;
     if (monitorPlaying) return; // don't replace while video is playing
 
-    // Expand monitor to active size
+    // Mark monitor as having a featured film (for play button hover)
     if (monitor) {
       monitor.classList.remove('is-idle');
-      monitor.classList.add('is-active', 'has-featured');
+      monitor.classList.add('has-featured');
     }
 
     const nextKey = thumbActive === 'a' ? 'b' : 'a';
@@ -111,12 +110,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (wash) wash.style.opacity = '1';
     const canvas = document.getElementById('monitor-canvas');
     if (canvas) canvas.style.opacity = '0.055';
-
-    // Collapse monitor to idle
-    if (monitor) {
-      monitor.classList.remove('is-active', 'has-featured');
-      monitor.classList.add('is-idle');
-    }
   }
 
   // ---- Inline hero video playback ----
@@ -201,8 +194,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
         playHeroInline();
       });
+    } else {
+      // No featured film — collapse to idle
+      if (monitor) monitor.classList.add('is-idle');
     }
-  } catch (e) { /* hero is optional */ }
+  } catch (e) {
+    // Hero fetch failed — collapse to idle
+    if (monitor) monitor.classList.add('is-idle');
+  }
 
   // ---- Card hover (no monitor change — keep Film of the Day locked) ----
 

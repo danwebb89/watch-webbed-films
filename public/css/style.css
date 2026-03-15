@@ -130,7 +130,7 @@ a {
 
 .monitor {
   position: relative;
-  height: 25vh;
+  height: 48vh;
   background: #050505;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   overflow: hidden;
@@ -954,9 +954,6 @@ body.page-exit {
 .monitor.is-idle {
   height: 25vh;
 }
-.monitor.is-active {
-  height: 48vh;
-}
 
 /* ---- MONITOR PLAY BUTTON (Fix #6) ---- */
 
@@ -1203,7 +1200,7 @@ body.page-exit {
   .browse-grid { grid-template-columns: 1fr; gap: 8px; }
   #portfolio-browse { padding: 60px 16px 80px; }
   .monitor.is-idle { height: 15vh; }
-  .monitor.is-active { height: 36vh; }
+  .monitor { height: 36vh; }
   .corner { display: none; }
   .hover-title { font-size: 24px; padding: 0 24px; }
   .watch-container { padding: 0 24px 60px; }
