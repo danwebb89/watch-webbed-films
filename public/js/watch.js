@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch {}
       }
       // Not unlocked or token expired — show password gate
-      showPasswordGate(slug, film);
+      showPasswordGate(slug, film, insertDuration);
     } else {
       loadVideo(film.video, insertDuration);
     }
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-function showPasswordGate(slug) {
+function showPasswordGate(slug, film, insertDuration) {
   const playerWrap = document.getElementById('player-wrap');
   playerWrap.innerHTML = `
     <div class="player-password-gate">
@@ -140,23 +140,52 @@ function showPasswordGate(slug) {
         } catch {}
         // Replace gate with player
         playerWrap.innerHTML = `
+          <div class="player-corner player-corner-tl"></div>
+          <div class="player-corner player-corner-tr"></div>
+          <div class="player-corner player-corner-bl"></div>
+          <div class="player-corner player-corner-br"></div>
+          <div class="player-scanlines"></div>
+          <div class="player-vignette"></div>
           <video id="video" preload="metadata"></video>
-          <div class="player-big-play" id="big-play">
+          <div id="big-play" class="player-big-play">
             <div class="player-big-play-btn">
               <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
             </div>
           </div>
-          <div class="player-controls">
-            <div class="player-progress" id="progress"><div class="player-progress-filled" id="progress-filled"></div></div>
+          <div id="controls" class="player-controls">
+            <div id="progress" class="player-progress">
+              <div id="progress-filled" class="player-progress-filled"></div>
+            </div>
             <div class="player-buttons">
-              <button class="player-btn" id="play-btn"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></button>
+              <button id="btn-play" class="player-btn" title="Play/Pause">
+                <svg id="icon-play" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" style="display:none">
+                  <rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/>
+                </svg>
+              </button>
               <div class="player-volume-wrap">
-                <button class="player-btn" id="mute-btn"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8.14v7.72A4.5 4.5 0 0016.5 12zM14 3.23v2.06a6.5 6.5 0 010 13.42v2.06A8.5 8.5 0 0014 3.23z"/></svg></button>
-                <div class="player-volume" id="volume"><div class="player-volume-filled" id="volume-filled"></div></div>
+                <button id="btn-mute" class="player-btn" title="Mute">
+                  <svg id="icon-vol" viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                  </svg>
+                  <svg id="icon-muted" viewBox="0 0 24 24" style="display:none">
+                    <path d="M3 9v6h4l5 5V4L7 9H3z"/>
+                    <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/>
+                    <line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                </button>
+                <div id="volume-bar" class="player-volume">
+                  <div id="volume-filled" class="player-volume-filled"></div>
+                </div>
               </div>
               <div class="player-spacer"></div>
-              <span class="player-time" id="time">0:00 / 0:00</span>
-              <button class="player-btn" id="fs-btn"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
+              <span id="time-display" class="player-time">00:00 / 00:00</span>
+              <button id="btn-fs" class="player-btn" title="Fullscreen">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                </svg>
+              </button>
             </div>
           </div>
         `;
