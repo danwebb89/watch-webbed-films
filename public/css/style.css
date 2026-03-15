@@ -55,11 +55,17 @@ a {
 .work-bg-overlay {
   position: fixed;
   inset: 0;
-  background:
-    url('/assets/images/noise-texture.png') repeat,
-    rgba(0, 0, 0, 0.78);
-  background-size: 150px 150px;
+  background: #0a0a0a;
   z-index: -1;
+  pointer-events: none;
+}
+.work-bg-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/assets/images/noise-texture.png') repeat;
+  background-size: 150px 150px;
+  opacity: 0.03;
   pointer-events: none;
 }
 
