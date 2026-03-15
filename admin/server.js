@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const cookieParser = require('cookie-parser');
 const { spawn } = require('child_process');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
 const app = express();
@@ -280,8 +282,56 @@ async function probeFrameBrightness(imagePath) {
 // Initialise SQLite database
 db.init(DATA_DIR);
 
+// ---- Security: Helmet ----
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
+}));
+app.disable('x-powered-by');
+
 app.use(express.json());
 app.use(cookieParser());
+
+// ---- Security: Rate Limiting ----
+
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later' }
+});
+
+const passwordVerifyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later' }
+});
+
+const generalApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' }
+});
+
+app.use('/api/', generalApiLimiter);
 
 // ---- Auth ----
 
@@ -305,7 +355,7 @@ app.get('/login', (req, res) => {
   res.send(loginPage());
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
   if (req.body.password === ADMIN_PASSWORD) {
     const tok = makeToken();
     res.cookie('session', tok, { httpOnly: true, sameSite: 'lax', maxAge: 86400000 });
@@ -332,48 +382,93 @@ app.use('/admin-assets', express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Favicon — serve PNG at /favicon.ico for browsers that look there
+// Favicon
 app.get('/favicon.ico', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Cache-Control', 'public, max-age=2592000');
   res.setHeader('Content-Type', 'image/png');
   res.sendFile(path.join(PUBLIC_DIR, 'assets', 'images', 'favicon.png'));
 });
 
-// Serve public site (no cache on anything — Cloudflare was serving stale files)
+// Versioned CSS/JS — cache forever (busted by ?v= param)
+app.use('/css', express.static(path.join(PUBLIC_DIR, 'css'), {
+  maxAge: '1y',
+  immutable: true
+}));
+app.use('/js', express.static(path.join(PUBLIC_DIR, 'js'), {
+  maxAge: '1y',
+  immutable: true
+}));
+
+// Images and static assets — cache 30 days
+app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets'), {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true
+}));
+
+// HTML and other files — no-cache (revalidate each time)
 app.use(express.static(PUBLIC_DIR, {
-  etag: false,
-  lastModified: false,
-  setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Surrogate-Control', 'no-store');
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
   }
 }));
+
+// ---- Public API helpers ----
+
+function sanitizeFilmForPublic(film) {
+  return {
+    slug: film.slug,
+    title: film.title,
+    category: film.category,
+    year: film.year,
+    thumbnail: film.thumbnail,
+    description: film.description,
+    duration: film.duration_minutes,
+    password_protected: !!film.password_hash,
+    eligible_for_featured: !!film.eligible_for_featured,
+    video: film.password_hash ? '' : (film.video || '')
+  };
+}
+
+function sanitizeFeaturedFilm(film) {
+  return {
+    slug: film.slug,
+    title: film.title,
+    category: film.category,
+    year: film.year,
+    thumbnail: film.thumbnail,
+    description: film.description,
+    duration: film.duration_minutes,
+    video: film.password_hash ? '' : (film.video || '')
+  };
+}
 
 // ---- Public API (no auth required) ----
 
 app.get('/api/public/featured', (req, res) => {
   const film = db.featuredFilm();
   if (!film) return res.json(null);
-  res.json(film);
+  res.set('Cache-Control', 'public, max-age=600, s-maxage=120');
+  res.json(sanitizeFeaturedFilm(film));
 });
 
 app.get('/api/public/films', (req, res) => {
-  res.json(db.publicFilms());
+  const films = db.publicFilms().map(sanitizeFilmForPublic);
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=60');
+  res.json(films);
 });
 
 app.get('/api/public/films/:slug', (req, res) => {
   const film = db.filmBySlug(req.params.slug);
   if (!film || !film.public) return res.status(404).json({ error: 'Not found' });
-  const locked = !!film.password_hash;
-  const { password_hash, ...rest } = film;
-  const result = { ...rest, public: !!film.public, password_protected: locked };
-  // Don't expose video path for locked films — require password verification first
-  if (locked) result.video = '';
-  res.json(result);
+  res.json(sanitizeFilmForPublic(film));
 });
 
-app.post('/api/public/films/:slug/verify-password', (req, res) => {
+app.post('/api/public/films/:slug/verify-password', passwordVerifyLimiter, (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
   const film = db.filmBySlug(req.params.slug);
@@ -411,9 +506,17 @@ app.get('/api/public/projects/:uuid', (req, res) => {
   res.json(project);
 });
 
-// Serve videos and thumbs
-app.use('/assets/videos', express.static(VIDEO_DIR));
-app.use('/assets/thumbs', express.static(THUMB_DIR));
+// Serve videos and thumbs (with caching)
+app.use('/assets/videos', express.static(VIDEO_DIR, {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true
+}));
+app.use('/assets/thumbs', express.static(THUMB_DIR, {
+  maxAge: '30d',
+  etag: true,
+  lastModified: true
+}));
 
 // ---- File Upload ----
 
