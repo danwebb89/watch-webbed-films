@@ -4,9 +4,15 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/png" href="/assets/images/favicon.png?v=3">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watch — Webbed Films</title>
+  <title>Webbed Films Screening Room</title>
+  <meta name="description" content="Watch films by Webbed Films — short films, documentaries, features and client screenings by Daniel Webb.">
+  <meta property="og:title" content="Webbed Films Screening Room">
+  <meta property="og:description" content="Watch films by Webbed Films — short films, documentaries, features and client screenings by Daniel Webb.">
+  <meta property="og:image" content="/assets/images/watch-logo.png">
+  <meta property="og:url" content="https://watch.webbedfilms.com">
+  <meta property="og:type" content="website">
   <link rel="stylesheet" href="https://webbedfilms.com/css/style.css">
-  <link rel="stylesheet" href="/css/style.css?v=6">
+  <link rel="stylesheet" href="/css/style.css?v=7">
 </head>
 <body>
 
@@ -14,6 +20,9 @@
     <img src="/assets/images/watch-logo.png" alt="">
     <div class="loader-scanline"></div>
   </div>
+  <script>
+    (function(){var t=setTimeout(function(){document.getElementById('site-loader').classList.add('show-loader');},400);window.__cancelLoader=function(){clearTimeout(t);};})();
+  </script>
 
   <video class="work-bg-video" autoplay muted loop playsinline>
     <source src="/assets/video/noise background.mp4" type="video/mp4">
@@ -26,9 +35,16 @@
       <a href="/" class="active">Films</a>
       <a href="/clients.html">Client Screenings</a>
       <a href="https://www.webbedfilms.com" target="_blank">Main Site</a>
-      <a href="/admin">Admin</a>
     </nav>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </header>
+  <div class="mobile-nav-overlay" id="mobile-nav">
+    <a href="/" class="active">Films</a>
+    <a href="/clients.html">Client Screenings</a>
+    <a href="https://www.webbedfilms.com" target="_blank">Main Site</a>
+  </div>
 
   <div id="grade-ui">
 
@@ -60,6 +76,12 @@
         <div class="hover-title" id="hover-title"></div>
         <div class="hover-subtitle" id="hover-subtitle"></div>
       </div>
+
+      <div class="monitor-play-btn" id="monitor-play-btn">
+        <div class="player-big-play-btn">
+          <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+        </div>
+      </div>
     </div>
 
     <!-- Status Bar -->
@@ -75,16 +97,33 @@
 
   <!-- Browse Portfolio -->
   <div id="portfolio-browse">
-    <div class="browse-search-bar">
-      <input type="text" id="film-search" class="browse-search-input" placeholder="Search films...">
+    <div class="browse-controls">
+      <div class="browse-search-bar">
+        <input type="text" id="film-search" class="browse-search-input" placeholder="Search films...">
+      </div>
+      <div class="browse-filter-bar">
+        <button class="browse-filter active" data-cat="all">All</button>
+        <button class="browse-filter" data-cat="Feature Films">Feature Films</button>
+        <button class="browse-filter" data-cat="Short Films">Short Films</button>
+        <button class="browse-filter" data-cat="Documentary">Documentary</button>
+        <button class="browse-filter" data-cat="Original">Original</button>
+        <button class="browse-filter" data-cat="Corporate">Corporate</button>
+      </div>
+      <select class="browse-filter-select" id="filter-select">
+        <option value="all">All Categories</option>
+        <option value="Feature Films">Feature Films</option>
+        <option value="Short Films">Short Films</option>
+        <option value="Documentary">Documentary</option>
+        <option value="Original">Original</option>
+        <option value="Corporate">Corporate</option>
+      </select>
     </div>
-    <div class="browse-filter-bar">
-      <button class="browse-filter active" data-cat="all">All</button>
-      <button class="browse-filter" data-cat="Feature Films">Feature Films</button>
-      <button class="browse-filter" data-cat="Short Films">Short Films</button>
-      <button class="browse-filter" data-cat="Documentary">Documentary</button>
-      <button class="browse-filter" data-cat="Original">Original</button>
-      <button class="browse-filter" data-cat="Corporate">Corporate</button>
+    <div class="screening-code-link">
+      <button class="screening-code-toggle" id="screening-code-toggle">Have a screening code?</button>
+      <form class="screening-code-form" id="screening-code-form">
+        <input type="text" id="screening-code-input" placeholder="Enter code">
+        <button type="submit" class="btn">View</button>
+      </form>
     </div>
     <div id="film-grid" class="browse-grid"></div>
   </div>
@@ -113,7 +152,8 @@
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
           </svg>
         </a>
-        <a href="https://www.linkedin.com/in/danwebb89" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+        <span class="linkedin-label">Daniel Webb</span>
+        <a href="https://www.linkedin.com/in/danwebb89" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn — Daniel Webb">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
           </svg>
@@ -152,6 +192,6 @@
   </div>
 
   <script src="/js/transitions.js?v=1"></script>
-  <script src="/js/app.js?v=6"></script>
+  <script src="/js/app.js?v=7"></script>
 </body>
 </html>

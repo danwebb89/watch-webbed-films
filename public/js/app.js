@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let featuredFilm = null;
   let monitorPlaying = false; // true when hero video is playing inline
 
+  // Start monitor in idle state
+  if (monitor) monitor.classList.add('is-idle');
+
   // Noise canvas
   (function initNoise() {
     const canvas = document.getElementById('monitor-canvas');
@@ -64,6 +67,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!film || !film.thumbnail) return;
     if (monitorPlaying) return; // don't replace while video is playing
 
+    // Expand monitor to active size
+    if (monitor) {
+      monitor.classList.remove('is-idle');
+      monitor.classList.add('is-active', 'has-featured');
+    }
+
     const nextKey = thumbActive === 'a' ? 'b' : 'a';
     const incoming = document.getElementById('monitor-thumb-' + nextKey);
     const outgoing = document.getElementById('monitor-thumb-' + thumbActive);
@@ -86,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       cat.style.color = '#c8a96e';
     }
     if (title) title.textContent = film.title;
-    if (sub) sub.textContent = 'WATCH ▶';
+    if (sub) sub.textContent = 'WATCH';
     document.getElementById('monitor-hover').style.opacity = '1';
     document.getElementById('monitor-idle').style.opacity = '0';
 
@@ -102,6 +111,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (wash) wash.style.opacity = '1';
     const canvas = document.getElementById('monitor-canvas');
     if (canvas) canvas.style.opacity = '0.055';
+
+    // Collapse monitor to idle
+    if (monitor) {
+      monitor.classList.remove('is-active', 'has-featured');
+      monitor.classList.add('is-idle');
+    }
   }
 
   // ---- Inline hero video playback ----
@@ -220,7 +235,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const lockIcon = locked ? `<div class="card-lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg></div>` : '';
       const cta = locked
         ? '<span class="browse-overlay-cta" style="color:var(--color-muted)">REQUEST ACCESS</span>'
-        : '<span class="browse-overlay-cta">WATCH ▶</span>';
+        : '<span class="browse-overlay-cta">WATCH &#9654;</span>';
+      // Card overlay metadata
+      const metaParts = [];
+      if (film.category) metaParts.push(film.category.toUpperCase());
+      if (film.year) metaParts.push(film.year);
+      if (film.duration) metaParts.push(film.duration + ' MIN');
+      const metaLine = metaParts.length ? `<span class="browse-overlay-meta">${metaParts.join(' \u00b7 ')}</span>` : '';
       return `
       <div class="browse-card${locked ? ' browse-card-locked' : ''}" data-slug="${film.slug}" data-title="${film.title}" data-locked="${locked}">
         ${lockIcon}
@@ -228,6 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <img src="${film.thumbnail}" alt="${film.title}" loading="lazy">
         </div>
         <div class="browse-overlay">
+          ${metaLine}
           <span class="browse-overlay-title">${film.title}</span>
           ${cta}
         </div>
@@ -347,6 +369,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ---- Load films ----
+  function dismissLoader() {
+    if (window.__cancelLoader) window.__cancelLoader();
+    const loader = document.getElementById('site-loader');
+    if (loader) loader.classList.add('loaded');
+  }
+
   try {
     const res = await fetch('/api/public/films');
     const rawFilms = await res.json();
@@ -364,14 +392,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     renderFilms(allFilms);
     updateStatusBar(allFilms);
-    // Dismiss loader
-    const loader = document.getElementById('site-loader');
-    if (loader) loader.classList.add('loaded');
+    dismissLoader();
   } catch (e) {
     grid.innerHTML = '<div class="empty-state"><p>// Unable to load films</p></div>';
     grid.className = 'browse-grid';
-    const loader = document.getElementById('site-loader');
-    if (loader) loader.classList.add('loaded');
+    dismissLoader();
     return;
   }
 
@@ -404,9 +429,61 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.querySelectorAll('.browse-filter').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeCategory = btn.dataset.cat;
+      // Sync dropdown
+      const sel = document.getElementById('filter-select');
+      if (sel) sel.value = activeCategory;
       applyFilters();
     });
   });
+
+  // ---- Mobile filter dropdown (Fix #10) ----
+  const filterSelect = document.getElementById('filter-select');
+  if (filterSelect) {
+    filterSelect.addEventListener('change', () => {
+      activeCategory = filterSelect.value;
+      // Sync buttons
+      document.querySelectorAll('.browse-filter').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === activeCategory);
+      });
+      applyFilters();
+    });
+  }
+
+  // ---- Hamburger menu (Fix #7) ----
+  (function() {
+    var h = document.getElementById('hamburger');
+    var n = document.getElementById('mobile-nav');
+    if (h && n) {
+      h.addEventListener('click', function() {
+        h.classList.toggle('is-open');
+        n.classList.toggle('is-open');
+      });
+    }
+  })();
+
+  // ---- Screening code toggle (Fix #11) ----
+  (function() {
+    var toggle = document.getElementById('screening-code-toggle');
+    var form = document.getElementById('screening-code-form');
+    if (toggle && form) {
+      toggle.addEventListener('click', function() {
+        form.classList.toggle('is-open');
+        if (form.classList.contains('is-open')) {
+          toggle.textContent = 'Hide screening code';
+          form.querySelector('input').focus();
+        } else {
+          toggle.textContent = 'Have a screening code?';
+        }
+      });
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var code = document.getElementById('screening-code-input').value.trim();
+        if (code) {
+          window.location.href = '/screening.html?id=' + encodeURIComponent(code);
+        }
+      });
+    }
+  })();
 
   // ---- Status Bar ----
   function updateStatusBar(films) {
@@ -423,6 +500,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `<em>${count}</em> ${cat}`;
     });
 
-    el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+    el.innerHTML = parts.join(' &nbsp;&middot;&nbsp; ');
   }
 });
