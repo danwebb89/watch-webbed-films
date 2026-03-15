@@ -298,7 +298,9 @@ app.use(helmet({
       baseUri: ["'self'"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: false
 }));
 app.disable('x-powered-by');
 
