@@ -369,7 +369,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ---- Load films ----
   function dismissLoader() {
-    if (window.__cancelLoader) window.__cancelLoader();
     const loader = document.getElementById('site-loader');
     if (loader) loader.classList.add('loaded');
   }

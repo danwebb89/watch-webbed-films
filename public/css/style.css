@@ -1155,16 +1155,7 @@ body.page-exit {
   border-color: var(--accent);
 }
 
-/* ---- LOADER HIDDEN BY DEFAULT (Fix #8) ---- */
-
-.site-loader {
-  visibility: hidden;
-  opacity: 0;
-}
-.site-loader.show-loader {
-  visibility: visible;
-  opacity: 1;
-}
+/* Loader is visible by default, dismissed via .loaded class */
 
 /* ---- RESPONSIVE ---- */
 
