@@ -1158,16 +1158,6 @@ body.page-exit {
   border-color: var(--accent);
 }
 
-/* ---- FOOTER LINKEDIN LABEL (Fix #12) ---- */
-
-.footer-social .linkedin-label {
-  font-family: var(--font-ui);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: rgba(240,237,232,0.4);
-  margin-right: -4px;
-}
-
 /* ---- LOADER HIDDEN BY DEFAULT (Fix #8) ---- */
 
 .site-loader {
