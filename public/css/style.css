@@ -3,7 +3,7 @@
    Editing suite aesthetic — matched to webbedfilms.com/work
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400;500&family=Cinzel:wght@300;400;500;700&family=JetBrains+Mono:wght@300;400&display=swap');
+/* Fonts loaded via <link> in HTML <head> — no @import */
 
 :root {
   --bg:           #0a0a0a;
@@ -50,21 +50,15 @@ a {
 
 /* ---- BACKGROUND VIDEO ---- */
 
-.work-bg-video {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -2;
-  pointer-events: none;
-  opacity: 0.5;
-}
+.work-bg-video { display: none; }
 
 .work-bg-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background:
+    url('/assets/images/noise-texture.png') repeat,
+    rgba(0, 0, 0, 0.78);
+  background-size: 150px 150px;
   z-index: -1;
   pointer-events: none;
 }

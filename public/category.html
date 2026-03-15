@@ -8,21 +8,20 @@
   <meta name="description" content="Browse films by category — Webbed Films Screening Room by Daniel Webb.">
   <meta property="og:title" content="Category — Webbed Films Screening Room">
   <meta property="og:description" content="Browse films by category — Webbed Films Screening Room by Daniel Webb.">
-  <meta property="og:image" content="/assets/images/watch-logo.png">
+  <meta property="og:image" content="/assets/images/watch-logo-opt.png">
   <meta property="og:url" content="https://watch.webbedfilms.com/category.html">
   <meta property="og:type" content="website">
-  <link rel="stylesheet" href="https://webbedfilms.com/css/style.css">
-  <link rel="stylesheet" href="/css/style.css?v=7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&family=Inter:wght@300;400;500&family=Cinzel:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
+  <link rel="stylesheet" href="/css/style.css?v=8">
 </head>
 <body>
 
-  <video class="work-bg-video" autoplay muted loop playsinline>
-    <source src="/assets/video/noise background.mp4" type="video/mp4">
-  </video>
   <div class="work-bg-overlay"></div>
 
   <header class="site-header">
-    <a href="/" class="logo-link"><img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="logo"></a>
+    <a href="/" class="logo-link"><img src="/assets/images/watch-logo-opt.png" alt="Watch Webbed Films" class="logo"></a>
     <nav class="site-nav">
       <a href="/">Films</a>
       <a href="/clients.html">Client Screenings</a>
@@ -115,7 +114,7 @@
     </div>
   </div>
 
-  <script src="/js/category.js?v=2"></script>
+  <script defer src="/js/category.js?v=3"></script>
   <script>(function(){var h=document.getElementById('hamburger'),n=document.getElementById('mobile-nav');if(h&&n){h.addEventListener('click',function(){h.classList.toggle('is-open');n.classList.toggle('is-open');});}})();</script>
 </body>
 </html>
