@@ -374,7 +374,7 @@ cmd_add() {
   local transcode_result
   transcode_result=$(cmd_transcode_wait_raw "$transcode_id")
   local video_path thumbnail_path
-  video_path=$(echo "$transcode_result" | python3 -c "import sys,json; d=json.load(sys.stdin); print('/assets/videos/' + d.get('output',''))")
+  video_path=$(echo "$transcode_result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('videoPath', '/assets/videos/' + d.get('output','')))")
   thumbnail_path=$(echo "$transcode_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('thumbnail',''))")
 
   info "==> Creating film: ${title}..."

@@ -17,12 +17,117 @@ const VIDEO_DIR = process.env.VIDEO_DIR || path.join(__dirname, '..', 'public', 
 const THUMB_DIR = process.env.THUMB_DIR || path.join(__dirname, '..', 'public', 'assets', 'thumbs');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, '..', 'public');
-const ORIGINALS_DIR = path.join(VIDEO_DIR, 'originals');
-const CHUNKS_DIR = path.join(VIDEO_DIR, 'chunks');
+
+// Organised storage structure
+const VIDEOS_DIR = path.join(VIDEO_DIR, 'videos');       // transcoded videos by category
+const STAGING_DIR = path.join(VIDEO_DIR, 'staging');      // temporary upload area
+const UPLOADS_DIR = path.join(STAGING_DIR, 'uploads');    // raw uploaded files
+const CHUNKS_DIR = path.join(STAGING_DIR, 'chunks');      // chunked upload assembly
+
+// Category slug mapping
+const CATEGORY_SLUGS = {
+  'Feature Films': 'feature-films',
+  'Short Films': 'short-films',
+  'Documentary': 'documentary',
+  'Media Zoo': 'media-zoo',
+  'Ratcliffe Studios': 'ratcliffe-studios',
+  'Revelstoke Films': 'revelstoke-films',
+  'Showreels': 'showreels',
+  'Trailers and BTS': 'trailers-and-bts',
+  'Webbed Films': 'webbed-films',
+  'Corporate': 'corporate',
+};
+
+function categorySlug(name) {
+  if (!name) return 'uncategorised';
+  return CATEGORY_SLUGS[name] || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'uncategorised';
+}
+
 // Ensure directories exist
-[VIDEO_DIR, THUMB_DIR, DATA_DIR, ORIGINALS_DIR, CHUNKS_DIR].forEach(dir => {
+const ALL_CAT_SLUGS = [...Object.values(CATEGORY_SLUGS), 'uncategorised'];
+[VIDEO_DIR, THUMB_DIR, DATA_DIR, VIDEOS_DIR, STAGING_DIR, UPLOADS_DIR, CHUNKS_DIR].forEach(dir => {
   fs.mkdirSync(dir, { recursive: true });
 });
+for (const cat of ALL_CAT_SLUGS) {
+  fs.mkdirSync(path.join(VIDEOS_DIR, cat), { recursive: true });
+  fs.mkdirSync(path.join(THUMB_DIR, cat), { recursive: true });
+}
+
+// ---- File placement helpers ----
+
+// Move video + thumbnails from one category folder to another, return updated paths
+function resolveFilmFiles(videoPath, thumbnailPath, category) {
+  const catSlug = categorySlug(category);
+  let finalVideo = videoPath;
+  let finalThumb = thumbnailPath;
+
+  if (videoPath) {
+    const parts = videoPath.replace(/^\/assets\/videos\//, '').split('/');
+    if (parts.length === 2) {
+      const [currentCat, filename] = parts;
+      if (currentCat !== catSlug) {
+        const srcPath = path.join(VIDEOS_DIR, currentCat, filename);
+        const destDir = path.join(VIDEOS_DIR, catSlug);
+        fs.mkdirSync(destDir, { recursive: true });
+        const destPath = path.join(destDir, filename);
+        if (fs.existsSync(srcPath)) {
+          fs.renameSync(srcPath, destPath);
+          console.log(`[Files] Moved video: ${currentCat}/${filename} → ${catSlug}/`);
+        }
+        finalVideo = `/assets/videos/${catSlug}/${filename}`;
+      }
+    }
+  }
+
+  if (thumbnailPath) {
+    const parts = thumbnailPath.replace(/^\/assets\/thumbs\//, '').split('/');
+    if (parts.length === 2) {
+      const [currentCat, filename] = parts;
+      if (currentCat !== catSlug) {
+        const srcDir = path.join(THUMB_DIR, currentCat);
+        const destDir = path.join(THUMB_DIR, catSlug);
+        fs.mkdirSync(destDir, { recursive: true });
+
+        // Move main thumbnail
+        const srcPath = path.join(srcDir, filename);
+        if (fs.existsSync(srcPath)) {
+          fs.renameSync(srcPath, path.join(destDir, filename));
+          console.log(`[Files] Moved thumb: ${currentCat}/${filename} → ${catSlug}/`);
+        }
+        finalThumb = `/assets/thumbs/${catSlug}/${filename}`;
+
+        // Move thumbnail options
+        const thumbBase = path.parse(filename).name; // e.g. 'file_thumb'
+        try {
+          const optFiles = fs.readdirSync(srcDir).filter(f => f.startsWith(thumbBase + '_opt_'));
+          for (const optFile of optFiles) {
+            fs.renameSync(path.join(srcDir, optFile), path.join(destDir, optFile));
+          }
+          if (optFiles.length > 0) console.log(`[Files] Moved ${optFiles.length} thumb options → ${catSlug}/`);
+        } catch (e) { /* source dir may not exist */ }
+      }
+    }
+  }
+
+  return { video: finalVideo, thumbnail: finalThumb };
+}
+
+// Clean up unused thumbnail options for a film
+function cleanupThumbOptions(thumbnailPath) {
+  if (!thumbnailPath) return;
+  const parts = thumbnailPath.replace(/^\/assets\/thumbs\//, '').split('/');
+  if (parts.length !== 2) return;
+  const [catSlug, filename] = parts;
+  const thumbDir = path.join(THUMB_DIR, catSlug);
+  const thumbBase = path.parse(filename).name; // e.g. 'file_thumb'
+  try {
+    const optFiles = fs.readdirSync(thumbDir).filter(f => f.startsWith(thumbBase + '_opt_'));
+    for (const optFile of optFiles) {
+      fs.unlinkSync(path.join(thumbDir, optFile));
+    }
+    if (optFiles.length > 0) console.log(`[Cleanup] Removed ${optFiles.length} unused thumb options for ${filename}`);
+  } catch (e) { /* ignore */ }
+}
 
 // ---- Transcode queue ----
 
@@ -107,9 +212,9 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
         job.thumbnailOptions = [];
       }
 
-      // Delete the original from originals/
+      // Delete the original from staging/uploads/
       try {
-        if (fs.existsSync(inputPath) && inputPath.includes('originals')) {
+        if (fs.existsSync(inputPath) && inputPath.includes('staging')) {
           fs.unlinkSync(inputPath);
           console.log(`[Transcode] Deleted original: ${path.basename(inputPath)}`);
         }
@@ -122,13 +227,20 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
       if (fs.existsSync(pendingFile)) {
         try {
           const pending = JSON.parse(fs.readFileSync(pendingFile, 'utf8'));
-          const videoPath = `/assets/videos/${job.output}`;
-          const thumbnail = job.thumbnail || '';
+          let videoPath = job.videoPath || `/assets/videos/uncategorised/${job.output}`;
+          let thumbnail = job.thumbnail || '';
+          const filmCategory = pending.category || '';
+
+          // Move files to correct category folder
+          const resolved = resolveFilmFiles(videoPath, thumbnail, filmCategory);
+          videoPath = resolved.video;
+          thumbnail = resolved.thumbnail;
+
           if (!db.filmBySlug(pending.slug)) {
             db.createFilm({
               slug: pending.slug,
               title: pending.title,
-              category: pending.category || '',
+              category: filmCategory,
               year: parseInt(pending.year) || new Date().getFullYear(),
               description: pending.description || '',
               thumbnail,
@@ -158,9 +270,11 @@ async function transcodeVideo(jobId, inputPath, outputPath) {
   });
 }
 
-async function generateThumbnail(videoPath, thumbName) {
+async function generateThumbnail(videoPath, thumbName, thumbSubdir = 'uncategorised') {
   const duration = await probeFor(videoPath);
-  const outputPath = path.join(THUMB_DIR, thumbName);
+  const thumbDir = path.join(THUMB_DIR, thumbSubdir);
+  fs.mkdirSync(thumbDir, { recursive: true });
+  const outputPath = path.join(thumbDir, thumbName);
 
   // Generate 10 candidates at different points and pick the best one
   const percentages = [0.08, 0.16, 0.24, 0.32, 0.40, 0.50, 0.58, 0.66, 0.76, 0.88];
@@ -168,7 +282,7 @@ async function generateThumbnail(videoPath, thumbName) {
 
   for (let i = 0; i < percentages.length; i++) {
     const seekTo = duration > 0 ? Math.max(1, Math.floor(duration * percentages[i])) : 2;
-    const candidatePath = path.join(THUMB_DIR, `_candidate_${i}_${thumbName}`);
+    const candidatePath = path.join(thumbDir, `_candidate_${i}_${thumbName}`);
 
     const ok = await new Promise((resolve) => {
       const proc = spawn('ffmpeg', [
@@ -226,13 +340,13 @@ async function generateThumbnail(videoPath, thumbName) {
   for (let i = 0; i < candidates.length; i++) {
     const c = candidates[i];
     const optName = `${baseName}_opt_${i}.jpg`;
-    const optPath = path.join(THUMB_DIR, optName);
+    const optPath = path.join(thumbDir, optName);
     fs.renameSync(c.path, optPath);
-    candidatePaths.push(`/assets/thumbs/${optName}`);
+    candidatePaths.push(`/assets/thumbs/${thumbSubdir}/${optName}`);
   }
 
   console.log(`[Thumbnail] Generated: ${thumbName} + ${candidatePaths.length} options (best at ${Math.round(best.pct * 100)}%, brightness=${best.brightness.toFixed(0)}, score=${best.score.toFixed(2)})`);
-  return { selected: `/assets/thumbs/${thumbName}`, options: candidatePaths };
+  return { selected: `/assets/thumbs/${thumbSubdir}/${thumbName}`, options: candidatePaths };
 }
 
 async function probeEnabled() {
@@ -514,8 +628,8 @@ app.get('/api/public/projects/:uuid', (req, res) => {
   res.json(project);
 });
 
-// Serve videos and thumbs (with caching)
-app.use('/assets/videos', express.static(VIDEO_DIR, {
+// Serve videos and thumbs from category subdirs (with caching)
+app.use('/assets/videos', express.static(VIDEOS_DIR, {
   maxAge: '30d',
   etag: true,
   lastModified: true
@@ -530,7 +644,7 @@ app.use('/assets/thumbs', express.static(THUMB_DIR, {
 
 const videoUpload = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, ORIGINALS_DIR),
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => {
       const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       cb(null, safe);
@@ -541,7 +655,7 @@ const videoUpload = multer({
 
 const thumbUpload = multer({
   storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, THUMB_DIR),
+    destination: (req, file, cb) => cb(null, path.join(THUMB_DIR, 'uncategorised')),
     filename: (req, file, cb) => {
       const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
       cb(null, safe);
@@ -560,18 +674,18 @@ app.post('/api/upload/video', requireAuth, (req, res, next) => {
 }, videoUpload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
 
-  const originalPath = path.join(ORIGINALS_DIR, req.file.filename);
+  const originalPath = path.join(UPLOADS_DIR, req.file.filename);
   const baseName = path.parse(req.file.filename).name;
   const outputName = baseName + '.mp4';
-  const outputPath = path.join(VIDEO_DIR, outputName);
+  const outputPath = path.join(VIDEOS_DIR, 'uncategorised', outputName);
 
-  // If already an mp4, check if it needs transcoding
   const jobId = crypto.randomBytes(8).toString('hex');
   transcodeJobs.set(jobId, {
     status: 'queued',
     progress: 0,
     input: req.file.filename,
     output: outputName,
+    videoPath: `/assets/videos/uncategorised/${outputName}`,
     error: null
   });
 
@@ -580,7 +694,8 @@ app.post('/api/upload/video', requireAuth, (req, res, next) => {
 
   res.json({
     filename: outputName,
-    path: `/assets/videos/${outputName}`,
+    path: `/assets/videos/uncategorised/${outputName}`,
+    videoPath: `/assets/videos/uncategorised/${outputName}`,
     transcodeId: jobId,
     original: req.file.filename
   });
@@ -625,9 +740,9 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
   if (chunkFiles.length === 0) return res.status(400).json({ error: 'No chunks found' });
 
   try {
-    // Assemble into originals dir
+    // Assemble into staging uploads dir
     const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const assembledPath = path.join(ORIGINALS_DIR, safe);
+    const assembledPath = path.join(UPLOADS_DIR, safe);
     const writeStream = fs.createWriteStream(assembledPath);
 
     for (const chunkFile of chunkFiles) {
@@ -656,7 +771,7 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
     // Start transcode (same as regular upload)
     const baseName = path.parse(safe).name;
     const outputName = baseName + '.mp4';
-    const outputPath = path.join(VIDEO_DIR, outputName);
+    const outputPath = path.join(VIDEOS_DIR, 'uncategorised', outputName);
 
     const jobId = crypto.randomBytes(8).toString('hex');
     transcodeJobs.set(jobId, {
@@ -664,6 +779,7 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
       progress: 0,
       input: safe,
       output: outputName,
+      videoPath: `/assets/videos/uncategorised/${outputName}`,
       error: null
     });
 
@@ -671,7 +787,8 @@ app.post('/api/upload/video-assemble', requireAuth, express.json(), async (req, 
 
     res.json({
       filename: outputName,
-      path: `/assets/videos/${outputName}`,
+      path: `/assets/videos/uncategorised/${outputName}`,
+      videoPath: `/assets/videos/uncategorised/${outputName}`,
       transcodeId: jobId,
       original: safe
     });
@@ -708,37 +825,64 @@ app.get('/api/transcode', requireAuth, (req, res) => {
 
 app.post('/api/upload/thumb', requireAuth, thumbUpload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ filename: req.file.filename, path: `/assets/thumbs/${req.file.filename}` });
+  res.json({ filename: req.file.filename, path: `/assets/thumbs/uncategorised/${req.file.filename}` });
 });
 
-// List uploaded files (only transcoded mp4s, not the originals folder)
+// List uploaded files (recurse through category subdirs)
 app.get('/api/files/videos', requireAuth, (req, res) => {
-  const files = fs.readdirSync(VIDEO_DIR).filter(f => {
-    if (f.startsWith('.') || f === 'originals' || f === 'chunks') return false;
-    return fs.statSync(path.join(VIDEO_DIR, f)).isFile();
+  const files = [];
+  const subdirs = fs.readdirSync(VIDEOS_DIR).filter(d => {
+    const p = path.join(VIDEOS_DIR, d);
+    return fs.statSync(p).isDirectory();
   });
-  res.json(files.map(f => ({
-    name: f,
-    path: `/assets/videos/${f}`,
-    size: fs.statSync(path.join(VIDEO_DIR, f)).size
-  })));
+  for (const subdir of subdirs) {
+    const dirPath = path.join(VIDEOS_DIR, subdir);
+    const dirFiles = fs.readdirSync(dirPath).filter(f => !f.startsWith('.') && fs.statSync(path.join(dirPath, f)).isFile());
+    for (const f of dirFiles) {
+      files.push({
+        name: f,
+        category: subdir,
+        path: `/assets/videos/${subdir}/${f}`,
+        size: fs.statSync(path.join(dirPath, f)).size
+      });
+    }
+  }
+  res.json(files);
 });
 
-// List thumbnail options for a given video filename base
+// List thumbnail options for a given video filename base (searches all category subdirs)
 app.get('/api/files/thumb-options/:videoBase', requireAuth, (req, res) => {
   const base = req.params.videoBase.replace(/\.[^.]+$/, '') + '_thumb';
-  const files = fs.readdirSync(THUMB_DIR).filter(f => f.startsWith(base + '_opt_'));
-  const options = files.sort().map(f => `/assets/thumbs/${f}`);
+  const options = [];
+  const subdirs = fs.readdirSync(THUMB_DIR).filter(d => {
+    try { return fs.statSync(path.join(THUMB_DIR, d)).isDirectory(); } catch { return false; }
+  });
+  for (const subdir of subdirs) {
+    const dirPath = path.join(THUMB_DIR, subdir);
+    const files = fs.readdirSync(dirPath).filter(f => f.startsWith(base + '_opt_'));
+    options.push(...files.sort().map(f => `/assets/thumbs/${subdir}/${f}`));
+  }
   res.json(options);
 });
 
 app.get('/api/files/thumbs', requireAuth, (req, res) => {
-  const files = fs.readdirSync(THUMB_DIR).filter(f => !f.startsWith('.'));
-  res.json(files.map(f => ({
-    name: f,
-    path: `/assets/thumbs/${f}`,
-    size: fs.statSync(path.join(THUMB_DIR, f)).size
-  })));
+  const files = [];
+  const subdirs = fs.readdirSync(THUMB_DIR).filter(d => {
+    try { return fs.statSync(path.join(THUMB_DIR, d)).isDirectory(); } catch { return false; }
+  });
+  for (const subdir of subdirs) {
+    const dirPath = path.join(THUMB_DIR, subdir);
+    const dirFiles = fs.readdirSync(dirPath).filter(f => !f.startsWith('.') && !f.startsWith('_candidate_'));
+    for (const f of dirFiles) {
+      files.push({
+        name: f,
+        category: subdir,
+        path: `/assets/thumbs/${subdir}/${f}`,
+        size: fs.statSync(path.join(dirPath, f)).size
+      });
+    }
+  }
+  res.json(files);
 });
 
 // ---- Films CRUD ----
@@ -748,10 +892,17 @@ app.get('/api/films', requireAuth, (req, res) => {
 });
 
 app.post('/api/films', requireAuth, (req, res) => {
-  const { title, slug, category, year, description, thumbnail, video, eligible_for_featured, visibility } = req.body;
+  let { title, slug, category, year, description, thumbnail, video, eligible_for_featured, visibility } = req.body;
   const isPublic = req.body.public !== undefined ? req.body.public : true;
   if (!title || !slug) return res.status(400).json({ error: 'Title and slug required' });
   if (db.filmBySlug(slug)) return res.status(409).json({ error: 'Slug already exists' });
+
+  // Move files from uncategorised to correct category folder
+  if (video || thumbnail) {
+    const resolved = resolveFilmFiles(video, thumbnail, category || '');
+    video = resolved.video;
+    thumbnail = resolved.thumbnail;
+  }
 
   const film = db.createFilm({ slug, title, category, year: parseInt(year) || new Date().getFullYear(), description, thumbnail, video, public: isPublic, visibility, eligible_for_featured });
   res.json(film);
@@ -763,12 +914,15 @@ app.post('/api/films/:slug/regenerate-thumbs', requireAuth, async (req, res) => 
   if (!film) return res.status(404).json({ error: 'Not found' });
   if (!film.video) return res.status(400).json({ error: 'No video path' });
 
-  const videoFile = path.basename(film.video);
-  const videoPath = path.join(VIDEO_DIR, videoFile);
+  // Resolve video path from category subdir
+  const videoRelPath = film.video.replace(/^\/assets\/videos\//, '');
+  const videoPath = path.join(VIDEOS_DIR, videoRelPath);
   if (!fs.existsSync(videoPath)) return res.status(400).json({ error: 'Video file not found on disk' });
 
-  const thumbName = path.parse(videoFile).name + '_thumb.jpg';
-  const result = await generateThumbnail(videoPath, thumbName);
+  // Determine category subfolder for thumbnails
+  const catSlug = categorySlug(film.category);
+  const thumbName = path.parse(path.basename(film.video)).name + '_thumb.jpg';
+  const result = await generateThumbnail(videoPath, thumbName, catSlug);
 
   if (result && typeof result === 'object') {
     // Update film thumbnail to the best pick
@@ -780,6 +934,20 @@ app.post('/api/films/:slug/regenerate-thumbs', requireAuth, async (req, res) => 
 });
 
 app.put('/api/films/:slug', requireAuth, (req, res) => {
+  const existingFilm = db.filmBySlug(req.params.slug);
+  if (!existingFilm) return res.status(404).json({ error: 'Not found' });
+
+  // If category is changing, relocate files on disk
+  if (req.body.category !== undefined && req.body.category !== existingFilm.category) {
+    const resolved = resolveFilmFiles(
+      existingFilm.video,
+      existingFilm.thumbnail,
+      req.body.category
+    );
+    req.body.video = resolved.video;
+    req.body.thumbnail = resolved.thumbnail;
+  }
+
   const film = db.updateFilm(req.params.slug, req.body);
   if (!film) return res.status(404).json({ error: 'Not found' });
   res.json(film);
@@ -787,6 +955,15 @@ app.put('/api/films/:slug', requireAuth, (req, res) => {
 
 app.delete('/api/films/:slug', requireAuth, (req, res) => {
   db.deleteFilm(req.params.slug);
+  res.json({ ok: true });
+});
+
+// Clean up unused thumbnail options for a film (keeps only the selected thumbnail)
+app.post('/api/films/:slug/cleanup-thumbs', requireAuth, (req, res) => {
+  const film = db.filmBySlug(req.params.slug);
+  if (!film) return res.status(404).json({ error: 'Not found' });
+  if (!film.thumbnail) return res.json({ ok: true, removed: 0 });
+  cleanupThumbOptions(film.thumbnail);
   res.json({ ok: true });
 });
 
@@ -934,6 +1111,140 @@ function loginPage() {
 </html>`;
 }
 
+// ---- Storage migration (flat → category structure) ----
+
+function migrateStorage() {
+  // Check if there are MP4 files loose in VIDEO_DIR root (old flat structure)
+  const rootFiles = fs.readdirSync(VIDEO_DIR).filter(f => {
+    if (f.startsWith('.') || ['videos', 'thumbs', 'staging', 'originals', 'chunks'].includes(f)) return false;
+    const fullPath = path.join(VIDEO_DIR, f);
+    return fs.statSync(fullPath).isFile();
+  });
+
+  // Also check for thumbnails directly in THUMB_DIR (not in subdirs)
+  const rootThumbs = fs.readdirSync(THUMB_DIR).filter(f => {
+    if (f.startsWith('.') || f.startsWith('_candidate_')) return false;
+    const fullPath = path.join(THUMB_DIR, f);
+    return fs.statSync(fullPath).isFile();
+  });
+
+  if (rootFiles.length === 0 && rootThumbs.length === 0) return;
+
+  console.log(`[Migration] Found ${rootFiles.length} root video files and ${rootThumbs.length} root thumbnails — migrating to category structure...`);
+
+  // Build a map: filename → category (from DB)
+  const films = db.allFilms();
+  const videoToCat = {};
+  const thumbToCat = {};
+
+  for (const film of films) {
+    const catSlug = categorySlug(film.category);
+    if (film.video) {
+      const filename = path.basename(film.video);
+      videoToCat[filename] = catSlug;
+      // Map related thumb files to this category
+      const videoBase = path.parse(filename).name;
+      thumbToCat[videoBase] = catSlug;
+    }
+    if (film.thumbnail) {
+      const thumbFilename = path.basename(film.thumbnail);
+      const thumbBase = path.parse(thumbFilename).name;
+      // Use video-based mapping if available, otherwise use thumb directly
+      if (!thumbToCat[thumbBase.replace(/_thumb$/, '')]) {
+        thumbToCat[thumbBase.replace(/_thumb$/, '')] = catSlug;
+      }
+    }
+  }
+
+  // Move video files
+  for (const file of rootFiles) {
+    const catSlug = videoToCat[file] || 'uncategorised';
+    const destDir = path.join(VIDEOS_DIR, catSlug);
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.renameSync(path.join(VIDEO_DIR, file), path.join(destDir, file));
+    console.log(`[Migration] Video: ${file} → videos/${catSlug}/`);
+  }
+
+  // Move thumbnail files
+  for (const file of rootThumbs) {
+    // Determine category from the thumb's video base name
+    const thumbBase = path.parse(file).name;
+    // Strip _thumb, _thumb_opt_N suffixes to get the video base
+    const videoBase = thumbBase.replace(/_thumb(_opt_\d+)?$/, '');
+    const catSlug = thumbToCat[videoBase] || 'uncategorised';
+    const destDir = path.join(THUMB_DIR, catSlug);
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.renameSync(path.join(THUMB_DIR, file), path.join(destDir, file));
+  }
+  if (rootThumbs.length > 0) console.log(`[Migration] Moved ${rootThumbs.length} thumbnails to category folders`);
+
+  // Update DB paths for all films
+  for (const film of films) {
+    const catSlug = categorySlug(film.category);
+    const updates = {};
+    if (film.video) {
+      const filename = path.basename(film.video);
+      const newPath = `/assets/videos/${catSlug}/${filename}`;
+      if (film.video !== newPath) updates.video = newPath;
+    }
+    if (film.thumbnail) {
+      const filename = path.basename(film.thumbnail);
+      const newPath = `/assets/thumbs/${catSlug}/${filename}`;
+      if (film.thumbnail !== newPath) updates.thumbnail = newPath;
+    }
+    if (Object.keys(updates).length > 0) {
+      db.updateFilm(film.slug, updates);
+    }
+  }
+
+  // Update project_versions DB paths
+  try {
+    const allProjects = db.allProjects();
+    for (const project of allProjects) {
+      const versions = db.versionsByProject(project.uuid);
+      for (const v of versions) {
+        const updates = {};
+        if (v.video) {
+          const filename = path.basename(v.video);
+          // Project versions don't have categories — put in uncategorised
+          const newPath = `/assets/videos/uncategorised/${filename}`;
+          if (v.video !== newPath) updates.video = newPath;
+        }
+        if (v.thumbnail) {
+          const filename = path.basename(v.thumbnail);
+          const newPath = `/assets/thumbs/uncategorised/${filename}`;
+          if (v.thumbnail !== newPath) updates.thumbnail = newPath;
+        }
+        if (Object.keys(updates).length > 0) {
+          // Direct DB update for project versions
+          const setClauses = Object.keys(updates).map(k => `${k} = ?`);
+          const values = Object.values(updates);
+          values.push(v.id);
+          db.getDb().prepare(`UPDATE project_versions SET ${setClauses.join(', ')} WHERE id = ?`).run(...values);
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`[Migration] Warning: project versions update — ${e.message}`);
+  }
+
+  // Move old originals/ and chunks/ contents to staging/ if they exist
+  for (const oldDir of ['originals', 'chunks']) {
+    const oldPath = path.join(VIDEO_DIR, oldDir);
+    if (fs.existsSync(oldPath)) {
+      const destDir = oldDir === 'originals' ? UPLOADS_DIR : CHUNKS_DIR;
+      const files = fs.readdirSync(oldPath).filter(f => !f.startsWith('.'));
+      for (const f of files) {
+        fs.renameSync(path.join(oldPath, f), path.join(destDir, f));
+      }
+      // Remove old directory if empty
+      try { fs.rmdirSync(oldPath); } catch { /* not empty or other error */ }
+    }
+  }
+
+  console.log('[Migration] Storage migration complete.');
+}
+
 // ---- Start ----
 
 const server = app.listen(PORT, '0.0.0.0', () => {
@@ -941,20 +1252,32 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Watch Admin] VIDEO_DIR: ${VIDEO_DIR}`);
   console.log(`[Watch Admin] DATA_DIR: ${DATA_DIR}`);
 
-  // Cleanup: delete originals that have a matching transcoded file
+  // Cleanup: delete stale uploads that have already been transcoded
   try {
-    const originals = fs.readdirSync(ORIGINALS_DIR).filter(f => !f.startsWith('.'));
-    const transcoded = fs.readdirSync(VIDEO_DIR).filter(f => f.endsWith('.mp4') && !f.startsWith('.'));
-    for (const orig of originals) {
-      const baseName = path.parse(orig).name + '.mp4';
-      if (transcoded.includes(baseName)) {
-        fs.unlinkSync(path.join(ORIGINALS_DIR, orig));
-        console.log(`[Cleanup] Deleted stale original: ${orig}`);
+    const uploads = fs.readdirSync(UPLOADS_DIR).filter(f => !f.startsWith('.'));
+    // Collect all transcoded filenames across category subdirs
+    const transcodedNames = new Set();
+    for (const cat of fs.readdirSync(VIDEOS_DIR)) {
+      const catPath = path.join(VIDEOS_DIR, cat);
+      if (fs.statSync(catPath).isDirectory()) {
+        for (const f of fs.readdirSync(catPath)) {
+          if (f.endsWith('.mp4')) transcodedNames.add(path.parse(f).name);
+        }
+      }
+    }
+    for (const orig of uploads) {
+      const baseName = path.parse(orig).name;
+      if (transcodedNames.has(baseName)) {
+        fs.unlinkSync(path.join(UPLOADS_DIR, orig));
+        console.log(`[Cleanup] Deleted stale upload: ${orig}`);
       }
     }
   } catch (e) {
     console.log(`[Cleanup] Warning: ${e.message}`);
   }
+
+  // Run storage migration if needed (flat → category structure)
+  migrateStorage();
 });
 
 // Allow large uploads — disable default 2-minute timeout

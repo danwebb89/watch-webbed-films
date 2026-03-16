@@ -121,7 +121,7 @@ function startBgTranscodePoll() {
 
 async function autoSaveFromBackground(job, formData) {
   // Build video and thumbnail paths from transcode job
-  const videoPath = `/assets/videos/${job.output}`;
+  const videoPath = job.videoPath || `/assets/videos/${job.output}`;
 
   // Fetch thumb files to find the auto-generated thumbnail
   await loadThumbFiles();
@@ -388,8 +388,7 @@ function pollModalTranscode(jobId, filename) {
         modalTranscodeInterval = null;
         filmSubmitBtn.disabled = false;
 
-        const videoName = filename.replace(/\.[^.]+$/, '') + '.mp4';
-        modalVideoPath = `/assets/videos/${videoName}`;
+        modalVideoPath = job.videoPath || `/assets/videos/${job.output}`;
         document.getElementById('film-video-path').value = modalVideoPath;
 
         filmProgressFilled.style.width = '100%';
@@ -1094,8 +1093,7 @@ function pollVersionTranscode(jobId, filename) {
         versionTranscodeInterval = null;
         versionSubmitBtn.disabled = false;
 
-        const videoName = filename.replace(/\.[^.]+$/, '') + '.mp4';
-        versionVideoPath = `/assets/videos/${videoName}`;
+        versionVideoPath = job.videoPath || `/assets/videos/${job.output}`;
         document.getElementById('version-video-path').value = versionVideoPath;
 
         versionProgressFilled.style.width = '100%';

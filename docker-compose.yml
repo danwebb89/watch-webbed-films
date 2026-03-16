@@ -8,7 +8,6 @@ services:
     volumes:
       # Video storage (persistent, on array)
       - /mnt/user/watch:/videos
-      - /mnt/user/watch/thumbs:/videos/thumbs
       # JSON data files (persistent)
       - /mnt/user/appdata/watch-webbed-films/data:/data
       # Live code (git pull updates without rebuild)
