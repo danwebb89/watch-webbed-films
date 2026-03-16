@@ -67,6 +67,13 @@ function init(dataDir) {
   if (!cols.includes('password_hash')) {
     db.exec('ALTER TABLE films ADD COLUMN password_hash TEXT');
   }
+  if (!cols.includes('visibility')) {
+    db.exec("ALTER TABLE films ADD COLUMN visibility TEXT DEFAULT 'public'");
+    // Migrate: public=0 → 'client', public=1 + password_hash → 'private', public=1 → 'public'
+    db.exec("UPDATE films SET visibility = 'client' WHERE public = 0");
+    db.exec("UPDATE films SET visibility = 'private' WHERE public = 1 AND password_hash IS NOT NULL");
+    db.exec("UPDATE films SET visibility = 'public' WHERE public = 1 AND password_hash IS NULL");
+  }
 
   // Migrate existing projects with video into project_versions
   const projects = db.prepare("SELECT uuid, video FROM projects WHERE video != ''").all();
@@ -92,11 +99,10 @@ function allFilms() {
 }
 
 function publicFilms() {
-  return getDb().prepare('SELECT * FROM films WHERE public = 1 ORDER BY sort_order, id DESC').all()
+  return getDb().prepare("SELECT * FROM films WHERE visibility = 'public' ORDER BY sort_order, id DESC").all()
     .map(f => {
-      const locked = !!f.password_hash;
       const { password_hash, ...rest } = f;
-      return { ...rest, public: !!f.public, eligible_for_featured: !!f.eligible_for_featured, password_protected: locked };
+      return { ...rest, public: true, eligible_for_featured: !!f.eligible_for_featured, password_protected: false };
     });
 }
 
@@ -104,12 +110,14 @@ function filmBySlug(slug) {
   return getDb().prepare('SELECT * FROM films WHERE slug = ?').get(slug) || null;
 }
 
-function createFilm({ slug, title, category, year, description, synopsis, credits, duration_minutes, role_description, thumbnail, video, public: isPublic, eligible_for_featured }) {
+function createFilm({ slug, title, category, year, description, synopsis, credits, duration_minutes, role_description, thumbnail, video, public: isPublic, visibility, eligible_for_featured }) {
+  const vis = visibility || (isPublic === false ? 'client' : 'public');
+  const pub = vis === 'public' || vis === 'unlisted' || vis === 'private' ? 1 : 0;
   const stmt = getDb().prepare(`
-    INSERT INTO films (slug, title, category, year, description, synopsis, credits, duration_minutes, role_description, thumbnail, video, public, eligible_for_featured)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO films (slug, title, category, year, description, synopsis, credits, duration_minutes, role_description, thumbnail, video, public, visibility, eligible_for_featured)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(slug, title, category || '', year || new Date().getFullYear(), description || '', synopsis || '', credits || '', duration_minutes || null, role_description || '', thumbnail || '', video || '', isPublic ? 1 : 0, eligible_for_featured ? 1 : 0);
+  stmt.run(slug, title, category || '', year || new Date().getFullYear(), description || '', synopsis || '', credits || '', duration_minutes || null, role_description || '', thumbnail || '', video || '', pub, vis, eligible_for_featured ? 1 : 0);
   return filmBySlug(slug);
 }
 
@@ -118,8 +126,17 @@ function updateFilm(slug, fields) {
   if (!film) return null;
 
   const allowed = ['title', 'slug', 'category', 'year', 'description', 'synopsis', 'credits',
-    'duration_minutes', 'role_description', 'thumbnail', 'video', 'public',
+    'duration_minutes', 'role_description', 'thumbnail', 'video', 'public', 'visibility',
     'eligible_for_featured', 'sort_order'];
+
+  // If visibility is set, sync the public column and handle password clearing
+  if (fields.visibility) {
+    fields.public = fields.visibility !== 'client' ? 1 : 0;
+    // Clear password hash if not private visibility
+    if (fields.visibility !== 'private') {
+      getDb().prepare("UPDATE films SET password_hash = NULL WHERE slug = ?").run(slug);
+    }
+  }
 
   const updates = [];
   const values = [];
@@ -145,11 +162,11 @@ function updateFilm(slug, fields) {
 function featuredFilm() {
   // Pick a deterministic "Film of the Day" from eligible public films
   const eligible = getDb().prepare(
-    'SELECT * FROM films WHERE public = 1 AND eligible_for_featured = 1'
+    "SELECT * FROM films WHERE visibility = 'public' AND eligible_for_featured = 1"
   ).all();
   if (eligible.length === 0) {
     // Fall back to any public film
-    const any = getDb().prepare('SELECT * FROM films WHERE public = 1 ORDER BY id DESC LIMIT 1').get();
+    const any = getDb().prepare("SELECT * FROM films WHERE visibility = 'public' ORDER BY id DESC LIMIT 1").get();
     return any ? { ...any, public: true, eligible_for_featured: !!any.eligible_for_featured } : null;
   }
   // Use London date to rotate at midnight UK time

@@ -427,6 +427,7 @@ app.use(express.static(PUBLIC_DIR, {
 // ---- Public API helpers ----
 
 function sanitizeFilmForPublic(film) {
+  const isPrivate = film.visibility === 'private';
   return {
     slug: film.slug,
     title: film.title,
@@ -435,9 +436,9 @@ function sanitizeFilmForPublic(film) {
     thumbnail: film.thumbnail,
     description: film.description,
     duration: film.duration_minutes,
-    password_protected: !!film.password_hash,
+    password_protected: isPrivate,
     eligible_for_featured: !!film.eligible_for_featured,
-    video: film.password_hash ? '' : (film.video || '')
+    video: isPrivate ? '' : (film.video || '')
   };
 }
 
@@ -450,7 +451,7 @@ function sanitizeFeaturedFilm(film) {
     thumbnail: film.thumbnail,
     description: film.description,
     duration: film.duration_minutes,
-    video: film.password_hash ? '' : (film.video || '')
+    video: film.video || ''
   };
 }
 
@@ -471,7 +472,7 @@ app.get('/api/public/films', (req, res) => {
 
 app.get('/api/public/films/:slug', (req, res) => {
   const film = db.filmBySlug(req.params.slug);
-  if (!film || !film.public) return res.status(404).json({ error: 'Not found' });
+  if (!film || film.visibility === 'client') return res.status(404).json({ error: 'Not found' });
   res.json(sanitizeFilmForPublic(film));
 });
 
@@ -479,7 +480,7 @@ app.post('/api/public/films/:slug/verify-password', passwordVerifyLimiter, (req,
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
   const film = db.filmBySlug(req.params.slug);
-  if (!film || !film.public) return res.status(404).json({ error: 'Not found' });
+  if (!film || film.visibility === 'client') return res.status(404).json({ error: 'Not found' });
   if (!film.password_hash) {
     // No password set — just grant access
     return res.json({ ok: true, video: film.video });
@@ -747,12 +748,12 @@ app.get('/api/films', requireAuth, (req, res) => {
 });
 
 app.post('/api/films', requireAuth, (req, res) => {
-  const { title, slug, category, year, description, thumbnail, video, eligible_for_featured } = req.body;
+  const { title, slug, category, year, description, thumbnail, video, eligible_for_featured, visibility } = req.body;
   const isPublic = req.body.public !== undefined ? req.body.public : true;
   if (!title || !slug) return res.status(400).json({ error: 'Title and slug required' });
   if (db.filmBySlug(slug)) return res.status(409).json({ error: 'Slug already exists' });
 
-  const film = db.createFilm({ slug, title, category, year: parseInt(year) || new Date().getFullYear(), description, thumbnail, video, public: isPublic, eligible_for_featured });
+  const film = db.createFilm({ slug, title, category, year: parseInt(year) || new Date().getFullYear(), description, thumbnail, video, public: isPublic, visibility, eligible_for_featured });
   res.json(film);
 });
 

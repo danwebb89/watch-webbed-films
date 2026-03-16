@@ -105,12 +105,10 @@ sys.exit(1)"
       [[ -n "$title" ]] || die "Usage: wf films create --title 'Title' [options]"
       [[ -z "$slug" ]] && slug=$(slugify "$title")
 
-      # Map visibility to public bool
-      case "$visibility" in
-        public)  public="true" ;;
-        private) public="false" ;;
-        client)  public="false" ;;
-      esac
+      # Map --public flag to visibility if visibility not explicitly set
+      if [[ "$visibility" == "public" && "$public" == "false" ]]; then
+        visibility="client"
+      fi
 
       local body
       body=$(python3 -c "
@@ -125,10 +123,10 @@ if sys.argv[8]: d['duration_minutes'] = int(sys.argv[8])
 if sys.argv[9]: d['role_description'] = sys.argv[9]
 if sys.argv[10]: d['video'] = sys.argv[10]
 if sys.argv[11]: d['thumbnail'] = sys.argv[11]
-d['public'] = sys.argv[12] == 'true'
+d['visibility'] = sys.argv[12]
 d['eligible_for_featured'] = sys.argv[13] == 'true'
 print(json.dumps(d))
-" "$title" "$slug" "$category" "$year" "$description" "$synopsis" "$credits" "$duration_minutes" "$role_description" "$video" "$thumbnail" "$public" "$featured")
+" "$title" "$slug" "$category" "$year" "$description" "$synopsis" "$credits" "$duration_minutes" "$role_description" "$video" "$thumbnail" "$visibility" "$featured")
       local result
       result=$(api POST /api/films -H "Content-Type: application/json" -d "$body")
       echo "$result" | python3 -m json.tool
@@ -163,14 +161,15 @@ print(json.dumps(d))
           --role)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['role_description']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
           --video)       body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['video']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
           --thumbnail)   body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['thumbnail']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
-          --public)      body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=sys.argv[1]=='true'; print(json.dumps(d))" "$2"); shift 2 ;;
-          --featured)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['eligible_for_featured']=sys.argv[1]=='true'; print(json.dumps(d))" "$2"); shift 2 ;;
-          --visibility)
-            case "$2" in
-              public)  body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=True; print(json.dumps(d))") ;;
-              private|client) body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=False; print(json.dumps(d))") ;;
-            esac
+          --public)
+            if [[ "$2" == "true" ]]; then
+              body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['visibility']='public'; print(json.dumps(d))")
+            else
+              body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['visibility']='client'; print(json.dumps(d))")
+            fi
             shift 2 ;;
+          --featured)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['eligible_for_featured']=sys.argv[1]=='true'; print(json.dumps(d))" "$2"); shift 2 ;;
+          --visibility)  body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['visibility']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
           --password)    password="$2"; shift 2 ;;
           --sort)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['sort_order']=int(sys.argv[1]); print(json.dumps(d))" "$2"); shift 2 ;;
           *) die "Unknown flag: $1" ;;
@@ -356,11 +355,10 @@ cmd_add() {
   [[ -n "$title" ]] || die "--title is required"
   [[ -z "$slug" ]] && slug=$(slugify "$title")
 
-  # Map visibility
-  case "$visibility" in
-    public)  public="true" ;;
-    private|client) public="false" ;;
-  esac
+  # Map --public flag to visibility if visibility not explicitly set
+  if [[ "$visibility" == "public" && "$public" == "false" ]]; then
+    visibility="client"
+  fi
 
   info "==> Uploading $(basename "$file")..."
   local upload_result
@@ -387,7 +385,7 @@ cmd_add() {
   [[ -n "$synopsis" ]] && create_args+=(--synopsis "$synopsis")
   [[ -n "$credits" ]] && create_args+=(--credits "$credits")
   [[ -n "$role_description" ]] && create_args+=(--role "$role_description")
-  create_args+=(--public "$public" --featured "$featured")
+  create_args+=(--visibility "$visibility" --featured "$featured")
   [[ -n "$password" ]] && create_args+=(--password "$password")
 
   cmd_films create "${create_args[@]}"
@@ -550,8 +548,8 @@ FLAGS:
   --duration      Duration in minutes
   --video         Video path (e.g. /assets/videos/file.mp4)
   --thumbnail     Thumbnail path (e.g. /assets/thumbs/file_thumb.jpg)
-  --public        true/false (default: true)
-  --visibility    public/private/client (alternative to --public)
+  --public        true/false (default: true, maps to visibility)
+  --visibility    public/unlisted/private/client (default: public)
   --featured      true/false — eligible for Film of the Day
   --password      Set password protection (use "none" to remove)
   --sort          Sort order number

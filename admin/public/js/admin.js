@@ -73,7 +73,6 @@ function clearModalTranscode() {
 function captureFilmFormData() {
   const editSlug = document.getElementById('film-edit-slug').value;
   const visValue = document.querySelector('input[name="film-visibility"]:checked')?.value || 'public';
-  const isPublic = visValue === 'public' || visValue === 'private';
   return {
     isEdit: !!editSlug,
     editSlug,
@@ -82,7 +81,7 @@ function captureFilmFormData() {
     category: document.getElementById('film-category').value,
     year: document.getElementById('film-year').value,
     description: document.getElementById('film-description').value,
-    public: isPublic,
+    visibility: visValue,
     eligible_for_featured: document.getElementById('film-featured').checked,
     password: document.getElementById('film-password').value
   };
@@ -137,7 +136,7 @@ async function autoSaveFromBackground(job, formData) {
     description: formData.description,
     video: videoPath,
     thumbnail,
-    public: formData.public,
+    visibility: formData.visibility,
     eligible_for_featured: formData.eligible_for_featured,
   };
 
@@ -159,8 +158,8 @@ async function autoSaveFromBackground(job, formData) {
       const savedFilm = await res.json();
       const filmSlug = savedFilm.slug || data.slug || formData.editSlug;
 
-      // Set password if provided
-      if (formData.password) {
+      // Set password if provided and visibility is private
+      if (formData.password && formData.visibility === 'private') {
         await fetch(`/api/films/${filmSlug}/password`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -457,24 +456,26 @@ function applyAdminFilters() {
   const searchInput = document.getElementById('films-search');
   const query = searchInput ? searchInput.value : '';
   let films = allAdminFilms;
-  if (adminPrivacyFilter === 'public') films = films.filter(f => f.public && !f.password_hash);
-  else if (adminPrivacyFilter === 'client') films = films.filter(f => !f.public);
-  else if (adminPrivacyFilter === 'password') films = films.filter(f => f.password_hash);
-  else if (adminPrivacyFilter === 'no-password') films = films.filter(f => f.public && !f.password_hash);
+  if (adminPrivacyFilter === 'public') films = films.filter(f => f.visibility === 'public');
+  else if (adminPrivacyFilter === 'unlisted') films = films.filter(f => f.visibility === 'unlisted');
+  else if (adminPrivacyFilter === 'private') films = films.filter(f => f.visibility === 'private');
+  else if (adminPrivacyFilter === 'client') films = films.filter(f => f.visibility === 'client');
   renderAdminFilms(films, query);
 }
 
 function renderAdminFilters() {
   const container = document.getElementById('admin-privacy-filters');
   if (!container) return;
-  const pwCount = allAdminFilms.filter(f => f.password_hash).length;
-  const noPwCount = allAdminFilms.filter(f => f.public && !f.password_hash).length;
-  const clientCount = allAdminFilms.filter(f => !f.public).length;
+  const publicCount = allAdminFilms.filter(f => f.visibility === 'public').length;
+  const unlistedCount = allAdminFilms.filter(f => f.visibility === 'unlisted').length;
+  const privateCount = allAdminFilms.filter(f => f.visibility === 'private').length;
+  const clientCount = allAdminFilms.filter(f => f.visibility === 'client').length;
   const filters = [
     { key: 'all', label: `All (${allAdminFilms.length})` },
-    { key: 'public', label: `Public (${noPwCount})` },
-    { key: 'password', label: `Password Protected (${pwCount})` },
-    { key: 'client', label: `Client Only (${clientCount})` },
+    { key: 'public', label: `Public (${publicCount})` },
+    ...(unlistedCount ? [{ key: 'unlisted', label: `Unlisted (${unlistedCount})` }] : []),
+    ...(privateCount ? [{ key: 'private', label: `Private (${privateCount})` }] : []),
+    ...(clientCount ? [{ key: 'client', label: `Client (${clientCount})` }] : []),
   ];
   container.innerHTML = filters.map(f =>
     `<button class="admin-privacy-btn${adminPrivacyFilter === f.key ? ' active' : ''}" data-filter="${f.key}">${f.label}</button>`
@@ -506,8 +507,8 @@ function renderAdminFilms(films, query) {
     );
   }
 
-  const publicCount = films.filter(f => f.public).length;
-  const clientCount = films.filter(f => !f.public).length;
+  const statsPublicCount = films.filter(f => f.visibility === 'public').length;
+  const statsClientCount = films.filter(f => f.visibility === 'client').length;
   const catCount = new Set(films.map(f => f.category).filter(Boolean)).size;
 
   // Group filtered films by category
@@ -533,8 +534,7 @@ function renderAdminFilms(films, query) {
       <div class="admin-card-thumb">
         ${f.thumbnail ? `<img src="${f.thumbnail}" alt="${f.title}" loading="lazy" onerror="this.style.display='none'">` : ''}
         <div class="admin-card-badges">
-          <span class="admin-badge ${f.public ? 'badge-public' : 'badge-client'}">${f.public ? 'PUBLIC' : 'CLIENT'}</span>
-          ${f.password_hash ? '<span class="admin-badge badge-locked">LOCKED</span>' : ''}
+          <span class="admin-badge ${f.visibility === 'public' ? 'badge-public' : f.visibility === 'unlisted' ? 'badge-unlisted' : f.visibility === 'private' ? 'badge-locked' : 'badge-client'}">${(f.visibility || 'public').toUpperCase()}</span>
           ${f.eligible_for_featured ? '<span class="admin-badge badge-featured">FOTD</span>' : ''}
         </div>
       </div>
@@ -544,7 +544,7 @@ function renderAdminFilms(films, query) {
       </div>
       <div class="admin-card-actions">
         <button class="btn btn-sm" onclick="event.stopPropagation(); editFilm('${f.slug}')">Edit</button>
-        <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFilm('${f.slug}', ${!f.public})">${f.public ? 'Hide' : 'Show'}</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation(); toggleFilm('${f.slug}', '${f.visibility === 'public' ? 'client' : 'public'}')">${f.visibility === 'public' ? 'Hide' : 'Show'}</button>
         <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteFilm('${f.slug}')">Delete</button>
       </div>
     </div>`;
@@ -563,11 +563,11 @@ function renderAdminFilms(films, query) {
         <span class="stat-label">// Total</span>
       </div>
       <div class="stat-item">
-        <span class="stat-value">${publicCount}</span>
+        <span class="stat-value">${statsPublicCount}</span>
         <span class="stat-label">// Public</span>
       </div>
       <div class="stat-item">
-        <span class="stat-value">${clientCount}</span>
+        <span class="stat-value">${statsClientCount}</span>
         <span class="stat-label">// Client</span>
       </div>
       <div class="stat-item">
@@ -652,9 +652,7 @@ async function editFilm(slug) {
   filmProgressFilled.style.width = '0%';
   filmProgressFilled.classList.remove('progress-done', 'progress-error');
 
-  let vis = 'public';
-  if (!film.public) vis = 'client';
-  else if (film.password_hash) vis = 'private';
+  const vis = film.visibility || (film.public ? 'public' : 'client');
   document.querySelector(`input[name="film-visibility"][value="${vis}"]`).checked = true;
   updateVisibilityUI(vis);
   document.getElementById('film-featured').checked = !!film.eligible_for_featured;
@@ -764,7 +762,6 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
   const editSlug = document.getElementById('film-edit-slug').value;
   const isEdit = !!editSlug;
   const visValue = document.querySelector('input[name="film-visibility"]:checked').value;
-  const isPublic = visValue === 'public' || visValue === 'private';
 
   const data = {
     title: document.getElementById('film-title').value,
@@ -773,7 +770,7 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
     description: document.getElementById('film-description').value,
     video: videoPath,
     thumbnail,
-    public: isPublic,
+    visibility: visValue,
     eligible_for_featured: document.getElementById('film-featured').checked,
   };
 
@@ -794,13 +791,16 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
     const savedFilm = await res.json();
     const filmSlug = savedFilm.slug || data.slug || editSlug;
 
-    const passwordVal = document.getElementById('film-password').value;
-    if (passwordVal !== '') {
-      await fetch(`/api/films/${filmSlug}/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: passwordVal })
-      });
+    const visValue = document.querySelector('input[name="film-visibility"]:checked').value;
+    if (visValue === 'private') {
+      const passwordVal = document.getElementById('film-password').value;
+      if (passwordVal !== '') {
+        await fetch(`/api/films/${filmSlug}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: passwordVal })
+        });
+      }
     }
 
     filmProgressFilled.style.width = '100%';
@@ -817,11 +817,11 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
   }
 });
 
-async function toggleFilm(slug, pub) {
+async function toggleFilm(slug, vis) {
   await fetch(`/api/films/${slug}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ public: pub })
+    body: JSON.stringify({ visibility: vis })
   });
   loadFilms();
 }
@@ -1244,6 +1244,9 @@ function updateVisibilityUI(value) {
   const pwGroup = document.getElementById('film-password-group');
   if (value === 'public') {
     hint.textContent = 'Visible to everyone';
+    pwGroup.style.display = 'none';
+  } else if (value === 'unlisted') {
+    hint.textContent = 'Accessible via direct link only — not shown in listings';
     pwGroup.style.display = 'none';
   } else if (value === 'private') {
     hint.textContent = 'Requires a password to view';

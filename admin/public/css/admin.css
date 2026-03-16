@@ -1343,6 +1343,12 @@ body {
   border: 1px solid rgba(94, 194, 105, 0.25);
 }
 
+.badge-unlisted {
+  background: rgba(100, 160, 220, 0.12);
+  color: #7ab3e0;
+  border: 1px solid rgba(100, 160, 220, 0.25);
+}
+
 .badge-client {
   background: rgba(240, 237, 232, 0.08);
   color: var(--text-muted);
