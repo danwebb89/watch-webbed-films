@@ -1154,14 +1154,26 @@ function migrateStorage() {
   const rootFiles = fs.readdirSync(VIDEO_DIR).filter(f => {
     if (f.startsWith('.') || ['videos', 'thumbs', 'staging', 'originals', 'chunks'].includes(f)) return false;
     const fullPath = path.join(VIDEO_DIR, f);
-    return fs.statSync(fullPath).isFile();
+    try {
+      const stat = fs.lstatSync(fullPath);
+      if (stat.isSymbolicLink()) {
+        try { fs.statSync(fullPath); } catch { return false; }
+      }
+      return stat.isFile() || stat.isSymbolicLink();
+    } catch { return false; }
   });
 
   // Also check for thumbnails directly in THUMB_DIR (not in subdirs)
   const rootThumbs = fs.readdirSync(THUMB_DIR).filter(f => {
     if (f.startsWith('.') || f.startsWith('_candidate_')) return false;
     const fullPath = path.join(THUMB_DIR, f);
-    return fs.statSync(fullPath).isFile();
+    try {
+      const stat = fs.lstatSync(fullPath);
+      if (stat.isSymbolicLink()) {
+        try { fs.statSync(fullPath); } catch { return false; }
+      }
+      return stat.isFile() || stat.isSymbolicLink();
+    } catch { return false; }
   });
 
   if (rootFiles.length === 0 && rootThumbs.length === 0) return;
