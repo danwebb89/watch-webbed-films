@@ -83,7 +83,8 @@ function captureFilmFormData() {
     description: document.getElementById('film-description').value,
     visibility: visValue,
     eligible_for_featured: document.getElementById('film-featured').checked,
-    password: document.getElementById('film-password').value
+    password: document.getElementById('film-password').value,
+    crossPostRevelstoke: !editSlug && document.getElementById('film-revelstoke').checked
   };
 }
 
@@ -138,6 +139,7 @@ async function autoSaveFromBackground(job, formData) {
     thumbnail,
     visibility: formData.visibility,
     eligible_for_featured: formData.eligible_for_featured,
+    crossPostRevelstoke: !!formData.crossPostRevelstoke,
   };
 
   if (!formData.isEdit) {
@@ -607,6 +609,8 @@ document.getElementById('btn-add-film').addEventListener('click', () => {
 
   document.querySelector('input[name="film-visibility"][value="public"]').checked = true;
   document.getElementById('film-featured').checked = false;
+  document.getElementById('film-revelstoke').checked = false;
+  document.getElementById('revelstoke-group').style.display = '';
   document.getElementById('film-password').value = '';
   document.getElementById('film-password-status').textContent = '';
   document.getElementById('film-password-group').style.display = 'none';
@@ -655,6 +659,7 @@ async function editFilm(slug) {
   document.querySelector(`input[name="film-visibility"][value="${vis}"]`).checked = true;
   updateVisibilityUI(vis);
   document.getElementById('film-featured').checked = !!film.eligible_for_featured;
+  document.getElementById('revelstoke-group').style.display = 'none';
   document.getElementById('film-password').value = '';
   const pwStatus = document.getElementById('film-password-status');
   pwStatus.textContent = film.password_hash ? 'Currently set' : '';
@@ -806,6 +811,7 @@ document.getElementById('film-form').addEventListener('submit', async (e) => {
     thumbnail,
     visibility: visValue,
     eligible_for_featured: document.getElementById('film-featured').checked,
+    crossPostRevelstoke: !isEdit && document.getElementById('film-revelstoke').checked,
   };
 
   if (!isEdit) {

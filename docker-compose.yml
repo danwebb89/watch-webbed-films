@@ -23,6 +23,8 @@ services:
       - DATA_DIR=/data
       - PUBLIC_DIR=/public-site
       - PORT=3500
+      - REVELSTOKE_API=http://192.168.10.25:3501
+      - CROSS_POST_SECRET=${CROSS_POST_SECRET}
     env_file:
       - .env
     restart: unless-stopped

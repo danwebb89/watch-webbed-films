@@ -18,6 +18,10 @@ const THUMB_DIR = process.env.THUMB_DIR || path.join(__dirname, '..', 'public', 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, '..', 'public');
 
+// Revelstoke cross-post config
+const REVELSTOKE_API = process.env.REVELSTOKE_API || 'http://192.168.10.25:3501';
+const CROSS_POST_SECRET = process.env.CROSS_POST_SECRET || '';
+
 // Organised storage structure
 const VIDEOS_DIR = path.join(VIDEO_DIR, 'videos');       // transcoded videos by category
 const STAGING_DIR = path.join(VIDEO_DIR, 'staging');      // temporary upload area
@@ -574,6 +578,36 @@ app.use(express.static(PUBLIC_DIR, {
   }
 }));
 
+// ---- Revelstoke cross-post ----
+
+async function crossPostToRevelstoke(film) {
+  if (!CROSS_POST_SECRET) {
+    console.log('[CrossPost] Skipped — no CROSS_POST_SECRET configured');
+    return false;
+  }
+  try {
+    const sharedFilm = {
+      ...film,
+      video: film.video ? film.video.replace('/assets/videos/', '/shared/videos/') : '',
+      thumbnail: film.thumbnail ? film.thumbnail.replace('/assets/thumbs/', '/shared/thumbs/') : '',
+    };
+    const res = await fetch(`${REVELSTOKE_API}/api/internal/cross-post`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: CROSS_POST_SECRET, film: sharedFilm })
+    });
+    if (res.ok) {
+      console.log(`[CrossPost] Sent "${film.title}" to Revelstoke`);
+      return true;
+    }
+    console.log(`[CrossPost] Failed: ${res.status}`);
+    return false;
+  } catch (e) {
+    console.log(`[CrossPost] Error: ${e.message}`);
+    return false;
+  }
+}
+
 // ---- Public API helpers ----
 
 function sanitizeFilmForPublic(film) {
@@ -941,6 +975,23 @@ app.post('/api/films', requireAuth, (req, res) => {
   }
 
   const film = db.createFilm({ slug, title, category, year: parseInt(year) || new Date().getFullYear(), description, thumbnail, video, public: isPublic, visibility, eligible_for_featured });
+
+  // Cross-post to Revelstoke if requested
+  if (req.body.crossPostRevelstoke) {
+    crossPostToRevelstoke({
+      slug: film.slug,
+      title: film.title,
+      category: film.category,
+      year: film.year,
+      description: film.description,
+      video: film.video,
+      thumbnail: film.thumbnail,
+      public: !!film.public,
+      eligible_for_featured: !!film.eligible_for_featured,
+      visibility: film.visibility || 'public'
+    });
+  }
+
   res.json(film);
 });
 
