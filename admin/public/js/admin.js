@@ -713,6 +713,41 @@ async function updateThumbPreview(videoPath, thumbnailPath) {
   }
 }
 
+async function regenThumbnails() {
+  const editSlug = document.getElementById('film-edit-slug').value;
+  if (!editSlug) return toast('Save the film first before regenerating thumbnails');
+
+  const btn = document.getElementById('regen-thumbs-btn');
+  btn.disabled = true;
+  btn.textContent = 'Regenerating...';
+
+  try {
+    const res = await fetch(`/api/films/${editSlug}/regenerate-thumbs`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok && data.options) {
+      const optionsGrid = document.getElementById('thumb-options-grid');
+      optionsGrid.innerHTML = data.options.map(opt => `
+        <img src="${opt}" alt="Option" class="thumb-option${opt === data.thumbnail ? ' selected' : ''}"
+             onclick="selectThumbnail(this, '${opt}')" loading="lazy">
+      `).join('');
+      document.getElementById('thumb-options').style.display = 'block';
+      if (data.thumbnail) {
+        document.getElementById('thumb-preview-img').src = data.thumbnail;
+        document.getElementById('thumb-preview').style.display = 'block';
+        document.getElementById('film-thumbnail-path').value = data.thumbnail;
+      }
+      toast('Thumbnails regenerated');
+    } else {
+      toast(data.error || 'Failed to regenerate thumbnails');
+    }
+  } catch (e) {
+    toast('Error: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Regenerate thumbnails';
+}
+
 function selectThumbnail(imgEl, thumbPath) {
   // Update selection
   document.querySelectorAll('.thumb-option').forEach(el => el.classList.remove('selected'));
