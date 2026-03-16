@@ -328,13 +328,17 @@ const passwordVerifyLimiter = rateLimit({
 
 const generalApiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' }
 });
 
-app.use('/api/', generalApiLimiter);
+app.use('/api/', (req, res, next) => {
+  // Skip rate limiting for upload endpoints (chunked uploads send many requests)
+  if (req.path.startsWith('/upload/')) return next();
+  generalApiLimiter(req, res, next);
+});
 
 // ---- Auth ----
 
