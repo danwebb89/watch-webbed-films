@@ -276,6 +276,9 @@ async function generateThumbnail(videoPath, thumbName, thumbSubdir = 'uncategori
   fs.mkdirSync(thumbDir, { recursive: true });
   const outputPath = path.join(thumbDir, thumbName);
 
+  // Detect black bars so thumbnails fill the frame
+  const cropFilter = await detectCrop(videoPath, duration);
+
   // Generate 10 candidates at different points and pick the best one
   const percentages = [0.08, 0.16, 0.24, 0.32, 0.40, 0.50, 0.58, 0.66, 0.76, 0.88];
   const candidates = [];
@@ -284,15 +287,18 @@ async function generateThumbnail(videoPath, thumbName, thumbSubdir = 'uncategori
     const seekTo = duration > 0 ? Math.max(1, Math.floor(duration * percentages[i])) : 2;
     const candidatePath = path.join(thumbDir, `_candidate_${i}_${thumbName}`);
 
+    const args = [
+      '-ss', String(seekTo),
+      '-i', videoPath,
+      ...(cropFilter ? ['-vf', cropFilter] : []),
+      '-vframes', '1',
+      '-q:v', '2',
+      '-y',
+      candidatePath
+    ];
+
     const ok = await new Promise((resolve) => {
-      const proc = spawn('ffmpeg', [
-        '-ss', String(seekTo),
-        '-i', videoPath,
-        '-vframes', '1',
-        '-q:v', '2',
-        '-y',
-        candidatePath
-      ]);
+      const proc = spawn('ffmpeg', args);
       proc.on('close', (code) => resolve(code === 0));
       proc.on('error', () => resolve(false));
     });
@@ -369,6 +375,36 @@ async function probeFor(filePath) {
     proc.stdout.on('data', d => out += d);
     proc.on('close', () => resolve(parseFloat(out) || 0));
     proc.on('error', () => resolve(0));
+  });
+}
+
+// Detect black bars (letterboxing/pillarboxing) and return a crop filter string
+async function detectCrop(videoPath, duration) {
+  const seekTo = duration > 0 ? Math.max(1, Math.floor(duration * 0.3)) : 2;
+  return new Promise((resolve) => {
+    const proc = spawn('ffmpeg', [
+      '-ss', String(seekTo),
+      '-i', videoPath,
+      '-vframes', '10',
+      '-vf', 'cropdetect=24:2:0',
+      '-f', 'null',
+      '-'
+    ]);
+    let stderr = '';
+    proc.stderr.on('data', d => stderr += d);
+    proc.on('close', () => {
+      // Parse the last cropdetect line (most stable detection)
+      const matches = [...stderr.matchAll(/crop=(\d+:\d+:\d+:\d+)/g)];
+      if (matches.length === 0) return resolve(null);
+      const lastCrop = matches[matches.length - 1][1];
+      // Only apply crop if it actually removes something
+      const [w, h] = lastCrop.split(':').map(Number);
+      if (w > 0 && h > 0) {
+        return resolve(`crop=${lastCrop}`);
+      }
+      resolve(null);
+    });
+    proc.on('error', () => resolve(null));
   });
 }
 
