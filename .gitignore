@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Video files
+*.mp4
+*.mov
+*.webm
+
+# Image/thumbnail files
+*.jpg
+*.jpeg
+*.JPG
+*.png
+*.gif
+*.webp
+
+# Exception: keep site assets (logo, background video etc.)
+!public/assets/images/**
+!public/assets/video/noise background.mp4
+
+# Audio files
+*.mp3
+*.wav
+*.aac
+
+# Originals directory
+originals/
+
+# SQLite database
+*.db
+*.db-wal
+*.db-shm
+
+# Environment files
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/

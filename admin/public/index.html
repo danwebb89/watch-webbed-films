@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Watch Webbed Films</title>
+  <link rel="icon" type="image/png" href="/assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/images/apple-touch-icon.png">
+  <link rel="stylesheet" href="/admin-assets/css/admin.css?v=3">
+</head>
+<body>
+  <a href="#admin-content" class="skip-link">Skip to content</a>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <nav class="admin-sidebar" id="admin-sidebar">
+    <div class="sidebar-top">
+      <a href="/admin" onclick="event.preventDefault();showSection('home');" class="sidebar-logo-link">
+        <img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="sidebar-logo">
+      </a>
+    </div>
+    <div class="sidebar-nav">
+      <button class="sidebar-nav-item active" data-section="home" onclick="showSection('home')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>Clients</span>
+      </button>
+      <button class="sidebar-nav-item" data-section="films" onclick="showSection('films')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></svg>
+        <span>Films</span>
+      </button>
+      <button class="sidebar-nav-item" data-section="requests" onclick="showSection('requests')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <span>Requests</span>
+        <span class="sidebar-badge" id="sidebar-requests-badge" style="display:none">0</span>
+      </button>
+    </div>
+    <div class="sidebar-bottom">
+      <a href="/" target="_blank" rel="noopener noreferrer" class="sidebar-nav-item sidebar-nav-link">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+        <span>View Site</span>
+      </a>
+      <button class="sidebar-nav-item" id="btn-logout">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MOBILE HEADER (visible only on mobile) -->
+  <header class="admin-header-mobile" id="admin-header-mobile">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileSidebar()">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+    <img src="/assets/images/watch-logo.png" alt="Watch Webbed Films" class="mobile-logo">
+    <span class="mobile-section-title" id="mobile-section-title">Clients</span>
+  </header>
+
+  <!-- BREADCRUMB (for client/project detail) -->
+  <div class="admin-breadcrumb" id="admin-breadcrumb" style="display:none">
+    <button onclick="showSection('home')" class="breadcrumb-link">Clients</button>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-items" id="breadcrumb-items"></span>
+  </div>
+
+  <h1 class="sr-only">Webbed Films Admin</h1>
+  <div class="admin-content" id="admin-content">
+    <!-- HOME (Client Dashboard) -->
+    <div id="section-home" class="admin-section active">
+      <div class="section-head">
+        <h2>Clients</h2>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="text" id="home-client-search" placeholder="Search clients..." class="films-search-input">
+          <button class="btn-primary" id="btn-add-client-home" onclick="document.getElementById('btn-add-client').click()">New Client</button>
+        </div>
+      </div>
+      <div id="home-requests-alert"></div>
+      <div id="home-clients-list"></div>
+      <div id="transcode-status"></div>
+    </div>
+
+    <!-- FILMS SECTION -->
+    <div id="section-films" class="admin-section">
+      <div class="section-head">
+        <h2>Films</h2>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="text" id="films-search" placeholder="Search films..." class="films-search-input">
+          <button class="btn-add-pill" id="btn-add-film">Add Film</button>
+        </div>
+      </div>
+      <div id="admin-privacy-filters" class="admin-privacy-filter-bar"></div>
+      <div id="films-list"></div>
+    </div>
+
+    <!-- CLIENT DETAIL SECTION -->
+    <div id="section-client-detail" class="admin-section">
+      <div id="client-detail-content"></div>
+    </div>
+
+    <!-- CLIENT PROJECT DETAIL SECTION -->
+    <div id="section-client-project-detail" class="admin-section">
+      <div id="client-project-detail-content"></div>
+    </div>
+
+    <!-- ACCESS REQUESTS SECTION -->
+    <div id="section-requests" class="admin-section">
+      <div class="section-head">
+        <h2>Access Requests</h2>
+      </div>
+      <div id="requests-list"></div>
+    </div>
+  </div>
+
+  <!-- Hidden button for client modal trigger (used by btn-add-client-home) -->
+  <button id="btn-add-client" style="display:none"></button>
+
+  <!-- FILM MODAL (Add / Edit) -->
+  <div id="film-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="film-modal-title">
+    <div class="modal">
+      <h3 id="film-modal-title">Add Film</h3>
+      <input type="hidden" id="film-edit-slug">
+      <form id="film-form">
+
+        <!-- Video file upload -->
+        <div class="form-group">
+          <label for="film-video-input">Video File</label>
+          <div id="film-video-picker" class="drop-zone" style="cursor:pointer">
+            <input type="file" id="film-video-input" accept="video/*" style="display:none">
+            <p>Drag & drop a video here, or <button type="button" id="film-video-btn" class="btn btn-sm" style="margin:0 4px">Choose file</button></p>
+            <span id="film-video-name" class="video-picker-name" style="margin-top:8px;display:block"></span>
+          </div>
+          <p class="form-hint">Optional — you can add the video later</p>
+          <!-- Upload + transcode progress (hidden until active) -->
+          <div id="film-upload-progress" class="modal-progress" style="display:none">
+            <div class="upload-progress-bar"><div id="film-progress-filled" class="upload-progress-filled"></div></div>
+            <p id="film-progress-text" class="upload-progress-text"></p>
+          </div>
+          <!-- For edit mode: show current video -->
+          <input type="hidden" id="film-video-path">
+        </div>
+
+        <div class="form-group">
+          <label for="film-title">Title</label>
+          <input type="text" id="film-title" required>
+        </div>
+        <div class="form-group" id="film-slug-group">
+          <label for="film-slug">URL Slug</label>
+          <input type="text" id="film-slug" placeholder="auto-generated from title">
+          <p class="form-hint">The URL path for this film — auto-generated from the title</p>
+        </div>
+        <div class="form-group">
+          <label for="film-category">Category</label>
+          <select id="film-category">
+            <option value="">Select category...</option>
+            <option value="Brand Film">Brand Film</option>
+            <option value="Charity">Charity</option>
+            <option value="Documentary">Documentary</option>
+            <option value="External Communications">External Communications</option>
+            <option value="Short Films">Short Films</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="film-year">Year</label>
+          <input type="number" id="film-year" value="2026">
+        </div>
+        <div class="form-group">
+          <label for="film-description">Description</label>
+          <textarea id="film-description" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="film-synopsis">Synopsis</label>
+          <textarea id="film-synopsis" rows="3" placeholder="Full synopsis (optional)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="film-credits">Credits</label>
+          <textarea id="film-credits" rows="3" placeholder="Credits (optional)"></textarea>
+        </div>
+        <div class="form-row" style="display:flex;gap:16px;">
+          <div class="form-group" style="flex:1">
+            <label for="film-duration">Duration (minutes)</label>
+            <input type="number" id="film-duration" placeholder="e.g. 45">
+          </div>
+          <div class="form-group" style="flex:1">
+            <label for="film-role">Role</label>
+            <input type="text" id="film-role" placeholder="e.g. Director, Editor">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Visibility</label>
+          <div class="visibility-options">
+            <label class="visibility-option">
+              <input type="radio" name="film-visibility" value="public" checked>
+              <div class="visibility-option-content">
+                <strong>Public</strong>
+                <span>Listed on the site, anyone can watch</span>
+              </div>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="film-visibility" value="unlisted">
+              <div class="visibility-option-content">
+                <strong>Unlisted</strong>
+                <span>Not listed, but accessible via direct link</span>
+              </div>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="film-visibility" value="private">
+              <div class="visibility-option-content">
+                <strong>Private</strong>
+                <span>Only visible to you in admin</span>
+              </div>
+            </label>
+            <label class="visibility-option">
+              <input type="radio" name="film-visibility" value="client">
+              <div class="visibility-option-content">
+                <strong>Client</strong>
+                <span>Only visible in the client's portal</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="film-password-group" style="display:none">
+          <label for="film-password">Password</label>
+          <div class="password-field-wrap">
+            <input type="text" id="film-password" placeholder="Enter password">
+            <span id="film-password-status" class="password-status"></span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="film-featured">
+            <span>Featured — eligible for Film of the Day</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Thumbnail</label>
+          <div id="thumb-preview" class="thumb-preview" style="display:none">
+            <img id="thumb-preview-img" src="" alt="Thumbnail preview">
+            <span class="thumb-preview-label">Selected thumbnail</span>
+          </div>
+          <div id="thumb-options" class="thumb-options" style="display:none">
+            <p class="form-hint" style="margin-bottom:8px">Choose a thumbnail:</p>
+            <div id="thumb-options-grid" class="thumb-options-grid"></div>
+            <button type="button" id="regen-thumbs-btn" class="btn btn-sm" style="margin-top:8px" onclick="regenThumbnails()">Regenerate thumbnails</button>
+          </div>
+          <p id="thumb-hint" class="form-hint">Auto-generated from video</p>
+          <input type="hidden" id="film-thumbnail-path" value="">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="film-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="film-submit-btn">Add Film</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CLIENT MODAL (Add / Edit) -->
+  <div id="client-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="client-modal-title">
+    <div class="modal">
+      <h3 id="client-modal-title">New Client</h3>
+      <input type="hidden" id="client-edit-slug">
+      <form id="client-form">
+        <div class="form-group">
+          <label for="client-name">Client Name</label>
+          <input type="text" id="client-name" required placeholder="Client name">
+        </div>
+        <div class="form-group">
+          <label for="client-slug">Portal URL</label>
+          <input type="text" id="client-slug" placeholder="auto-generated from name">
+          <p class="form-hint" id="client-slug-preview">The client will access their portal at: <strong>watch.webbedfilms.com/portal/<span id="client-slug-preview-val">...</span></strong></p>
+        </div>
+        <div class="form-group">
+          <label for="client-password">Password (optional)</label>
+          <input type="text" id="client-password" placeholder="Leave blank for no password">
+        </div>
+        <div class="form-group">
+          <label for="client-notes">Notes (admin only)</label>
+          <textarea id="client-notes" rows="2" placeholder="Internal notes — only visible to you"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="client-logo-input">Client Logo</label>
+          <div id="client-logo-preview" style="display:none;margin-bottom:8px;"><img style="max-height:48px;border-radius:4px;" alt="Logo"></div>
+          <input type="file" id="client-logo-input" accept="image/*" style="font-size:13px;">
+          <p class="form-hint">PNG or JPG. Shows on their portal and your admin cards.</p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="client-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="client-submit-btn">Create Client</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CLIENT PROJECT MODAL -->
+  <div id="client-project-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="client-project-modal-title">
+    <div class="modal">
+      <h3 id="client-project-modal-title">New Project</h3>
+      <input type="hidden" id="client-project-edit-slug">
+      <input type="hidden" id="client-project-client-slug">
+      <form id="client-project-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="client-project-title">Project Title</label>
+            <input type="text" id="client-project-title" required>
+          </div>
+          <div class="form-group" style="max-width:140px">
+            <label for="client-project-rf-number">Reference</label>
+            <input type="text" id="client-project-rf-number" placeholder="e.g. RF-001">
+            <p class="form-hint">Your internal ref</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="client-project-description">Description</label>
+          <textarea id="client-project-description" rows="2"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="client-project-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="client-project-submit-btn">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CLIENT VERSION UPLOAD MODAL -->
+  <div id="client-version-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="client-version-modal-title">
+    <div class="modal">
+      <h3 id="client-version-modal-title">Add Version</h3>
+      <form id="client-version-form">
+        <input type="hidden" id="client-version-client-slug">
+        <input type="hidden" id="client-version-project-slug">
+        <input type="hidden" id="client-version-deliverable-type" value="video">
+        <div class="form-group">
+          <label for="client-version-video-input" id="client-version-file-label">File</label>
+          <div class="drop-zone" id="client-version-drop-zone">
+            <input type="file" id="client-version-video-input" style="display:none">
+            <p>Drag & drop a file here, or <button type="button" id="client-version-video-btn" class="btn btn-sm" style="margin:0 4px">Choose file</button></p>
+            <span id="client-version-video-name" class="video-picker-name" style="margin-top:8px;display:block"></span>
+          </div>
+          <div id="client-version-upload-progress" class="modal-progress" style="display:none">
+            <div class="upload-progress-bar"><div id="client-version-progress-filled" class="upload-progress-filled"></div></div>
+            <p id="client-version-progress-text" class="upload-progress-text"></p>
+          </div>
+          <input type="hidden" id="client-version-video-path">
+        </div>
+        <div class="form-group">
+          <label for="client-version-note">Note</label>
+          <input type="text" id="client-version-note" placeholder="e.g. Final Cut, Color Grade v2">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="client-version-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="client-version-submit-btn" disabled>Add Version</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADD DELIVERABLE MODAL -->
+  <div id="format-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Add Deliverable">
+    <div class="modal">
+      <h3>Add Deliverable</h3>
+      <form id="format-form">
+        <input type="hidden" id="format-client-slug">
+        <input type="hidden" id="format-project-slug">
+        <div class="form-group">
+          <label for="format-custom-label">Name</label>
+          <input type="text" id="format-custom-label" placeholder="e.g. Hero Film, Brand Guidelines, Campaign Photo" required>
+        </div>
+        <div class="form-group">
+          <label for="format-type">Type</label>
+          <select id="format-type">
+            <option value="video">Video</option>
+            <option value="document">Document</option>
+            <option value="image">Image</option>
+            <option value="design">Design File</option>
+            <option value="audio">Audio</option>
+          </select>
+        </div>
+        <div class="form-group" id="format-ratio-group">
+          <label for="format-custom-ratio">Aspect Ratio</label>
+          <select id="format-custom-ratio">
+            <option value="16:9">16:9</option>
+            <option value="1:1">1:1</option>
+            <option value="9:16">9:16</option>
+            <option value="4:5">4:5</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="format-is-hero">
+            <span>Primary deliverable (shown first)</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="format-modal">Cancel</button>
+          <button type="submit" class="btn-primary">Add Deliverable</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PROJECT FILE UPLOAD MODAL -->
+  <div id="project-file-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Upload Project File">
+    <div class="modal">
+      <h3>Upload Project File</h3>
+      <form id="project-file-form">
+        <input type="hidden" id="project-file-client-slug">
+        <input type="hidden" id="project-file-project-slug">
+        <div class="form-group">
+          <label for="project-file-category">Category</label>
+          <select id="project-file-category">
+            <option value="script">Script</option>
+            <option value="storyboard">Storyboard</option>
+            <option value="reference">Reference</option>
+            <option value="brief">Brief</option>
+            <option value="logo">Logo</option>
+            <option value="graphics">Graphics</option>
+            <option value="other">Other...</option>
+          </select>
+          <input type="text" id="project-file-category-custom" placeholder="Enter category name" style="display:none;margin-top:8px">
+        </div>
+        <div class="form-group">
+          <label for="project-file-input">File</label>
+          <input type="file" id="project-file-input">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="project-file-modal">Cancel</button>
+          <button type="submit" class="btn-primary">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- RESOURCE UPLOAD MODAL -->
+  <div id="resource-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Upload Resource">
+    <div class="modal">
+      <h3>Upload Resource</h3>
+      <form id="resource-form">
+        <input type="hidden" id="resource-client-slug">
+        <div class="form-group">
+          <label for="resource-category">Category</label>
+          <select id="resource-category">
+            <option value="scripts">Scripts</option>
+            <option value="brand-guidelines">Brand Guidelines</option>
+            <option value="logos">Logos</option>
+            <option value="graphics">Graphics</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="resource-file-input">File</label>
+          <input type="file" id="resource-file-input">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="resource-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="resource-submit-btn">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EXTERNAL LINK MODAL -->
+  <div id="link-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="link-modal-title">
+    <div class="modal" style="max-width:460px;">
+      <h3 id="link-modal-title">Add Link</h3>
+      <form id="link-form">
+        <input type="hidden" id="link-edit-id">
+        <input type="hidden" id="link-type">
+        <input type="hidden" id="link-parent-id">
+        <div class="form-group">
+          <label for="link-url">URL</label>
+          <input type="url" id="link-url" required placeholder="https://docs.google.com/document/d/...">
+        </div>
+        <div class="form-group">
+          <label for="link-title">Title</label>
+          <input type="text" id="link-title" required placeholder="e.g. Brand Guidelines Draft">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <div id="link-doc-type-display" style="display:flex;align-items:center;gap:8px;padding:8px 0;">
+            <span id="link-doc-type-icon"></span>
+            <span id="link-doc-type-label" style="font-size:12px;color:var(--text-muted)">Paste a URL to auto-detect</span>
+          </div>
+          <input type="hidden" id="link-doc-type" value="document">
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="link-client-visible" checked>
+            <span>Visible to client</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-muted" data-close-modal="link-modal">Cancel</button>
+          <button type="submit" class="btn-primary" id="link-submit-btn">Add Link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div id="confirm-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div class="modal" style="max-width:420px;">
+      <h3 id="confirm-modal-title">Confirm</h3>
+      <p id="confirm-modal-message" style="margin:16px 0;opacity:0.7;"></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm" data-close-modal="confirm-modal">Cancel</button>
+        <button class="btn btn-sm btn-danger" id="confirm-modal-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE SIDEBAR OVERLAY -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/admin-assets/js/admin.js?v=19"></script>
+  <script src="/admin-assets/js/admin-dynamics.js?v=5"></script>
+</body>
+</html>

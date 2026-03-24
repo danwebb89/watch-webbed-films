@@ -1,0 +1,27 @@
+{
+  "name": "watch-webbed-films",
+  "version": "2.0.0",
+  "description": "Watch Webbed Films — Video screening platform",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danwebb89/watch-webbed-films.git"
+  },
+  "keywords": [],
+  "author": "Daniel Webb",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/danwebb89/watch-webbed-films/issues"
+  },
+  "homepage": "https://github.com/danwebb89/watch-webbed-films#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

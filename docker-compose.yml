@@ -1,0 +1,31 @@
+services:
+  watch-webbed-films:
+    build: ./admin
+    container_name: watch-webbed-films
+    network_mode: host
+    devices:
+      - /dev/dri:/dev/dri
+    volumes:
+      # Video storage (persistent, on array)
+      - /mnt/user/watch:/videos
+      # JSON data files (persistent)
+      - /mnt/user/appdata/watch-webbed-films/data:/data
+      # Live code (git pull updates without rebuild)
+      - /mnt/user/appdata/watch-webbed-films/public:/public-site:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/public:/app/public:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/server.js:/app/server.js:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/db.js:/app/db.js:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/migrate.js:/app/migrate.js:ro
+      - /mnt/user/appdata/watch-webbed-films/admin/pipeline:/app/pipeline:ro
+    environment:
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - VIDEO_DIR=/videos
+      - THUMB_DIR=/videos/thumbs
+      - DATA_DIR=/data
+      - PUBLIC_DIR=/public-site
+      - PORT=3500
+      - CROSS_POST_SECRET=${CROSS_POST_SECRET}
+      - SIGNING_SECRET=${SIGNING_SECRET}
+    env_file:
+      - .env
+    restart: unless-stopped

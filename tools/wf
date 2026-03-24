@@ -1,0 +1,844 @@
+#!/usr/bin/env bash
+# wf — CLI for watch.webbedfilms.com admin API
+# Usage: wf <command> [args...]
+set -euo pipefail
+
+# ── Config ──────────────────────────────────────────────
+API_BASE="${WF_API_BASE:-http://192.168.10.25:3500}"
+COOKIE_JAR="${WF_COOKIE_JAR:-$HOME/.wf-session}"
+PASSWORD="${WF_PASSWORD:-Bubblegum12}"
+CHUNK_SIZE=$((25 * 1024 * 1024))  # 25 MB
+
+# ── Helpers ─────────────────────────────────────────────
+die()  { echo "error: $*" >&2; exit 1; }
+info() { echo "$*" >&2; }
+
+api() {
+  local method="$1" path="$2"; shift 2
+  curl -s -b "$COOKIE_JAR" -c "$COOKIE_JAR" \
+    -X "$method" "${API_BASE}${path}" "$@"
+}
+
+ensure_auth() {
+  local check
+  check=$(api GET /api/films 2>/dev/null) || true
+  if echo "$check" | grep -qi "login\|unauthorized\|<!DOCTYPE" 2>/dev/null; then
+    info "Authenticating..."
+    local result
+    result=$(curl -s -c "$COOKIE_JAR" -X POST "${API_BASE}/api/login" \
+      -H "Content-Type: application/json" \
+      -d "{\"password\":\"${PASSWORD}\"}")
+    if ! echo "$result" | grep -q '"ok"'; then
+      die "Login failed: $result"
+    fi
+    info "Authenticated."
+  fi
+}
+
+json_val() {
+  python3 -c "import sys,json; print(json.load(sys.stdin).get('$1',''))" <<< "$2"
+}
+
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//'
+}
+
+# ── Commands ────────────────────────────────────────────
+
+cmd_login() {
+  info "Logging in to ${API_BASE}..."
+  local result
+  result=$(curl -s -c "$COOKIE_JAR" -X POST "${API_BASE}/api/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"password\":\"${PASSWORD}\"}")
+  if echo "$result" | grep -q '"ok"'; then
+    echo "Logged in."
+  else
+    die "Login failed: $result"
+  fi
+}
+
+cmd_films() {
+  local action="${1:-list}"; shift || true
+  ensure_auth
+  case "$action" in
+    list)
+      api GET /api/films | python3 -m json.tool
+      ;;
+    get)
+      local slug="${1:?Usage: wf films get <slug>}"
+      api GET /api/films | python3 -c "
+import sys, json
+films = json.load(sys.stdin)
+for f in films:
+    if f.get('slug') == '$slug':
+        json.dump(f, sys.stdout, indent=2)
+        print()
+        sys.exit(0)
+print('Not found', file=sys.stderr)
+sys.exit(1)"
+      ;;
+    create)
+      local title="" slug="" category="" year="" description="" video="" thumbnail=""
+      local public="true" featured="false" password="" visibility="public"
+      local synopsis="" credits="" duration_minutes="" role_description=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --title)            title="$2"; shift 2 ;;
+          --slug)             slug="$2"; shift 2 ;;
+          --category)         category="$2"; shift 2 ;;
+          --year)             year="$2"; shift 2 ;;
+          --description)      description="$2"; shift 2 ;;
+          --synopsis)         synopsis="$2"; shift 2 ;;
+          --credits)          credits="$2"; shift 2 ;;
+          --duration)         duration_minutes="$2"; shift 2 ;;
+          --role)             role_description="$2"; shift 2 ;;
+          --video)            video="$2"; shift 2 ;;
+          --thumbnail)        thumbnail="$2"; shift 2 ;;
+          --public)           public="$2"; shift 2 ;;
+          --visibility)       visibility="$2"; shift 2 ;;
+          --featured)         featured="$2"; shift 2 ;;
+          --password)         password="$2"; shift 2 ;;
+          *) die "Unknown flag: $1" ;;
+        esac
+      done
+      [[ -n "$title" ]] || die "Usage: wf films create --title 'Title' [options]"
+      [[ -z "$slug" ]] && slug=$(slugify "$title")
+
+      # Map visibility to public bool
+      case "$visibility" in
+        public)  public="true" ;;
+        private) public="false" ;;
+        client)  public="false" ;;
+      esac
+
+      local body
+      body=$(python3 -c "
+import json, sys
+d = {'title': sys.argv[1], 'slug': sys.argv[2]}
+if sys.argv[3]: d['category'] = sys.argv[3]
+if sys.argv[4]: d['year'] = int(sys.argv[4])
+if sys.argv[5]: d['description'] = sys.argv[5]
+if sys.argv[6]: d['synopsis'] = sys.argv[6]
+if sys.argv[7]: d['credits'] = sys.argv[7]
+if sys.argv[8]: d['duration_minutes'] = int(sys.argv[8])
+if sys.argv[9]: d['role_description'] = sys.argv[9]
+if sys.argv[10]: d['video'] = sys.argv[10]
+if sys.argv[11]: d['thumbnail'] = sys.argv[11]
+d['public'] = sys.argv[12] == 'true'
+d['eligible_for_featured'] = sys.argv[13] == 'true'
+print(json.dumps(d))
+" "$title" "$slug" "$category" "$year" "$description" "$synopsis" "$credits" "$duration_minutes" "$role_description" "$video" "$thumbnail" "$public" "$featured")
+      local result
+      result=$(api POST /api/films -H "Content-Type: application/json" -d "$body")
+      echo "$result" | python3 -m json.tool
+
+      # Set password if provided
+      if [[ -n "$password" ]]; then
+        local film_slug
+        film_slug=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('slug',''))")
+        if [[ -n "$film_slug" ]]; then
+          api PUT "/api/films/${film_slug}/password" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\":\"${password}\"}" > /dev/null
+          info "Password set."
+        fi
+      fi
+      ;;
+    update)
+      local slug="${1:?Usage: wf films update <slug> --field value ...}"; shift
+      local password=""
+      local body
+      body=$(python3 -c "import json; print(json.dumps({}))")
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --title)       body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['title']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --slug)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['slug']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --category)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['category']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --year)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['year']=int(sys.argv[1]); print(json.dumps(d))" "$2"); shift 2 ;;
+          --description) body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['description']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --synopsis)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['synopsis']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --credits)     body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['credits']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --duration)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['duration_minutes']=int(sys.argv[1]); print(json.dumps(d))" "$2"); shift 2 ;;
+          --role)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['role_description']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --video)       body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['video']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --thumbnail)   body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['thumbnail']=sys.argv[1]; print(json.dumps(d))" "$2"); shift 2 ;;
+          --public)      body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=sys.argv[1]=='true'; print(json.dumps(d))" "$2"); shift 2 ;;
+          --featured)    body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['eligible_for_featured']=sys.argv[1]=='true'; print(json.dumps(d))" "$2"); shift 2 ;;
+          --visibility)
+            case "$2" in
+              public)  body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=True; print(json.dumps(d))") ;;
+              private|client) body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['public']=False; print(json.dumps(d))") ;;
+            esac
+            shift 2 ;;
+          --password)    password="$2"; shift 2 ;;
+          --sort)        body=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); d['sort_order']=int(sys.argv[1]); print(json.dumps(d))" "$2"); shift 2 ;;
+          *) die "Unknown flag: $1" ;;
+        esac
+      done
+      api PUT "/api/films/${slug}" -H "Content-Type: application/json" -d "$body" | python3 -m json.tool
+
+      # Set/remove password if --password was provided
+      if [[ -n "$password" ]]; then
+        if [[ "$password" == "none" || "$password" == "remove" || "$password" == "" ]]; then
+          api PUT "/api/films/${slug}/password" \
+            -H "Content-Type: application/json" -d '{"password":null}' > /dev/null
+          info "Password removed."
+        else
+          api PUT "/api/films/${slug}/password" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\":\"${password}\"}" > /dev/null
+          info "Password set."
+        fi
+      fi
+      ;;
+    delete)
+      local slug="${1:?Usage: wf films delete <slug>}"
+      api DELETE "/api/films/${slug}" | python3 -m json.tool
+      ;;
+    *) die "Unknown films action: $action (list|get|create|update|delete)" ;;
+  esac
+}
+
+cmd_upload() {
+  local file="${1:?Usage: wf upload <video-file>}"
+  [[ -f "$file" ]] || die "File not found: $file"
+  ensure_auth
+
+  local filesize
+  filesize=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+  local filename
+  filename=$(basename "$file")
+
+  if [[ "$filesize" -lt "$CHUNK_SIZE" ]]; then
+    info "Uploading ${filename} ($(( filesize / 1024 / 1024 ))MB)..."
+    api POST /api/upload/video -F "file=@${file}" | python3 -m json.tool
+  else
+    local total_chunks=$(( (filesize + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+    local upload_id
+    upload_id=$(python3 -c "import uuid; print(uuid.uuid4().hex[:16])")
+
+    info "Chunked upload: ${filename} ($(( filesize / 1024 / 1024 ))MB, ${total_chunks} chunks)"
+
+    local chunk_index=0
+    local offset=0
+    local tmp_chunk
+    tmp_chunk=$(mktemp)
+    trap "rm -f '$tmp_chunk'" EXIT
+
+    while [[ $offset -lt $filesize ]]; do
+      dd if="$file" bs="$CHUNK_SIZE" skip="$chunk_index" count=1 2>/dev/null > "$tmp_chunk"
+      info "  Chunk $((chunk_index + 1))/${total_chunks}..."
+      api POST /api/upload/video-chunk \
+        -F "uploadId=${upload_id}" \
+        -F "chunkIndex=${chunk_index}" \
+        -F "totalChunks=${total_chunks}" \
+        -F "chunk=@${tmp_chunk}" > /dev/null
+      chunk_index=$((chunk_index + 1))
+      offset=$((offset + CHUNK_SIZE))
+    done
+
+    info "Assembling chunks..."
+    ensure_auth
+    api POST /api/upload/video-assemble \
+      -H "Content-Type: application/json" \
+      -d "{\"uploadId\":\"${upload_id}\",\"filename\":\"${filename}\"}" | python3 -m json.tool
+  fi
+}
+
+cmd_transcode() {
+  local id="${1:?Usage: wf transcode <id>}"
+  ensure_auth
+  api GET "/api/transcode/${id}" | python3 -m json.tool
+}
+
+cmd_transcode_wait() {
+  local id="${1:?Usage: wf transcode-wait <id>}"
+  ensure_auth
+  info "Waiting for transcode ${id}..."
+  while true; do
+    local result
+    result=$(api GET "/api/transcode/${id}")
+    local status
+    status=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))")
+    local progress
+    progress=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('progress',0))")
+
+    case "$status" in
+      done)
+        info "Transcode complete."
+        echo "$result" | python3 -m json.tool
+        return 0
+        ;;
+      error)
+        info "Transcode failed."
+        echo "$result" | python3 -m json.tool
+        return 1
+        ;;
+      *)
+        info "  ${status}: ${progress}%"
+        sleep 3
+        ;;
+    esac
+  done
+}
+
+# Upload + transcode + create film in one command
+cmd_add() {
+  local file="" title="" slug="" category="" year="" description="" password=""
+  local public="true" featured="false" visibility="public"
+  local synopsis="" credits="" role_description=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --title)       title="$2"; shift 2 ;;
+      --slug)        slug="$2"; shift 2 ;;
+      --category)    category="$2"; shift 2 ;;
+      --year)        year="$2"; shift 2 ;;
+      --description) description="$2"; shift 2 ;;
+      --synopsis)    synopsis="$2"; shift 2 ;;
+      --credits)     credits="$2"; shift 2 ;;
+      --role)        role_description="$2"; shift 2 ;;
+      --public)      public="$2"; shift 2 ;;
+      --visibility)  visibility="$2"; shift 2 ;;
+      --featured)    featured="$2"; shift 2 ;;
+      --password)    password="$2"; shift 2 ;;
+      -*)            die "Unknown flag: $1" ;;
+      *)
+        if [[ -z "$file" ]]; then
+          file="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+  [[ -n "$file" ]] || die "Usage: wf add <video-file> --title 'Title' [options]"
+  [[ -f "$file" ]] || die "File not found: $file"
+  [[ -n "$title" ]] || die "--title is required"
+  [[ -z "$slug" ]] && slug=$(slugify "$title")
+
+  # Map visibility
+  case "$visibility" in
+    public)  public="true" ;;
+    private|client) public="false" ;;
+  esac
+
+  info "==> Uploading $(basename "$file")..."
+  local upload_result
+  upload_result=$(cmd_upload_raw "$file")
+  local transcode_id
+  transcode_id=$(echo "$upload_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('transcodeId',''))")
+
+  if [[ -z "$transcode_id" ]]; then
+    die "Upload failed — no transcodeId returned. Response: $upload_result"
+  fi
+
+  info "==> Transcoding (id: ${transcode_id})..."
+  local transcode_result
+  transcode_result=$(cmd_transcode_wait_raw "$transcode_id")
+  local video_path thumbnail_path
+  video_path=$(echo "$transcode_result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('videoPath', '/assets/videos/' + d.get('output','')))")
+  thumbnail_path=$(echo "$transcode_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('thumbnail',''))")
+
+  info "==> Creating film: ${title}..."
+  local create_args=(--title "$title" --slug "$slug" --video "$video_path" --thumbnail "$thumbnail_path")
+  [[ -n "$category" ]] && create_args+=(--category "$category")
+  [[ -n "$year" ]] && create_args+=(--year "$year")
+  [[ -n "$description" ]] && create_args+=(--description "$description")
+  [[ -n "$synopsis" ]] && create_args+=(--synopsis "$synopsis")
+  [[ -n "$credits" ]] && create_args+=(--credits "$credits")
+  [[ -n "$role_description" ]] && create_args+=(--role "$role_description")
+  create_args+=(--public "$public" --featured "$featured")
+  [[ -n "$password" ]] && create_args+=(--password "$password")
+
+  cmd_films create "${create_args[@]}"
+  info "==> Done! Film '${title}' is live."
+}
+
+# Raw upload — returns JSON without pretty-printing (for piping)
+cmd_upload_raw() {
+  local file="$1"
+  ensure_auth
+
+  local filesize
+  filesize=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+  local filename
+  filename=$(basename "$file")
+
+  if [[ "$filesize" -lt "$CHUNK_SIZE" ]]; then
+    info "Uploading ${filename} ($(( filesize / 1024 / 1024 ))MB)..."
+    api POST /api/upload/video -F "file=@${file}"
+  else
+    local total_chunks=$(( (filesize + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+    local upload_id
+    upload_id=$(python3 -c "import uuid; print(uuid.uuid4().hex[:16])")
+
+    info "Chunked upload: ${filename} ($(( filesize / 1024 / 1024 ))MB, ${total_chunks} chunks)"
+
+    local chunk_index=0
+    local offset=0
+    local tmp_chunk
+    tmp_chunk=$(mktemp)
+    trap "rm -f '$tmp_chunk'" EXIT
+
+    while [[ $offset -lt $filesize ]]; do
+      dd if="$file" bs="$CHUNK_SIZE" skip="$chunk_index" count=1 2>/dev/null > "$tmp_chunk"
+      info "  Chunk $((chunk_index + 1))/${total_chunks}..."
+      api POST /api/upload/video-chunk \
+        -F "uploadId=${upload_id}" \
+        -F "chunkIndex=${chunk_index}" \
+        -F "totalChunks=${total_chunks}" \
+        -F "chunk=@${tmp_chunk}" > /dev/null
+      chunk_index=$((chunk_index + 1))
+      offset=$((offset + CHUNK_SIZE))
+    done
+
+    info "Assembling chunks..."
+    ensure_auth
+    api POST /api/upload/video-assemble \
+      -H "Content-Type: application/json" \
+      -d "{\"uploadId\":\"${upload_id}\",\"filename\":\"${filename}\"}"
+  fi
+}
+
+# Raw transcode wait — returns JSON without pretty-printing
+cmd_transcode_wait_raw() {
+  local id="$1"
+  ensure_auth
+  info "Waiting for transcode ${id}..."
+  local poll_count=0
+  while true; do
+    # Re-auth every 20 polls (~60s) to prevent session expiry
+    poll_count=$((poll_count + 1))
+    if (( poll_count % 20 == 0 )); then
+      ensure_auth
+    fi
+    local result
+    result=$(api GET "/api/transcode/${id}")
+    local status
+    status=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "unknown")
+    local progress
+    progress=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('progress',0))" 2>/dev/null || echo "0")
+
+    case "$status" in
+      done)
+        info "Transcode complete."
+        echo "$result"
+        return 0
+        ;;
+      error)
+        info "Transcode failed."
+        echo "$result"
+        return 1
+        ;;
+      unknown)
+        # Likely auth expired, re-auth and retry
+        ensure_auth
+        sleep 3
+        ;;
+      *)
+        info "  ${status}: ${progress}%"
+        sleep 3
+        ;;
+    esac
+  done
+}
+
+cmd_regen_thumbs() {
+  local slug="${1:?Usage: wf regen-thumbs <slug>}"
+  ensure_auth
+  info "Regenerating thumbnails for ${slug}..."
+  api POST "/api/films/${slug}/regenerate-thumbs" | python3 -m json.tool
+}
+
+cmd_files() {
+  local type="${1:-videos}"
+  ensure_auth
+  case "$type" in
+    videos) api GET /api/files/videos | python3 -m json.tool ;;
+    thumbs) api GET /api/files/thumbs | python3 -m json.tool ;;
+    *) die "Unknown file type: $type (videos|thumbs)" ;;
+  esac
+}
+
+cmd_help() {
+  cat <<'HELP'
+wf — CLI for revelstoke.webbedfilms.com
+
+COMMANDS:
+  add <file> --title "T" [opts]   Upload, transcode, and create film in one step
+    --title, --slug, --category, --year, --description, --synopsis,
+    --credits, --role, --public, --visibility, --featured, --password
+
+  films list                       List all films
+  films get <slug>                 Get a single film by slug
+  films create --title "T" [opts]  Create a film entry (no upload)
+    --title, --slug, --category, --year, --description, --synopsis,
+    --credits, --role, --video, --thumbnail, --public, --visibility,
+    --featured, --password
+  films update <slug> [opts]       Update a film's fields
+    --title, --slug, --category, --year, --description, --synopsis,
+    --credits, --role, --video, --thumbnail, --public, --visibility,
+    --featured, --password, --sort
+  films delete <slug>              Delete a film
+
+  portal clients                   List all client portals
+  portal clients create --name "N" Create a client portal
+  portal projects <client> list    List projects for a client
+  portal projects <client> create  Create project within client
+  portal add-version <c> <p> <f>   Upload video as new version
+  portal upload-resource <c> <f>   Upload resource file
+  portal migrate-project <uuid>    Migrate legacy project to portal
+  portal help                      Full portal command reference
+
+  upload <file>                    Upload a video (auto-chunked if >5MB)
+  transcode <id>                   Check transcode status
+  transcode-wait <id>              Poll until transcode completes
+  regen-thumbs <slug>              Regenerate 10 thumbnail options
+
+  files videos                     List available transcoded videos
+  files thumbs                     List available thumbnails
+
+  login                            Authenticate manually
+
+FLAGS:
+  --title         Film/project title
+  --slug          URL slug (auto-generated from title if omitted)
+  --category      Category: "Podcast Video", "Brand Film", "Documentary",
+                  "Charity", "External Communications"
+  --year          Release year (default: current year)
+  --description   Short description
+  --synopsis      Full synopsis
+  --credits       Credits text
+  --role          Role/position description
+  --duration      Duration in minutes
+  --video         Video path (e.g. /assets/videos/file.mp4)
+  --thumbnail     Thumbnail path (e.g. /assets/thumbs/file_thumb.jpg)
+  --public        true/false (default: true)
+  --visibility    public/private/client (alternative to --public)
+  --featured      true/false — eligible for Film of the Day
+  --password      Set password protection (use "none" to remove)
+  --sort          Sort order number
+
+ENVIRONMENT:
+  WF_API_BASE    API URL (default: http://192.168.10.25:3501)
+  WF_PASSWORD    Admin password
+  WF_COOKIE_JAR  Cookie file path (default: ~/.rf-session)
+
+EXAMPLES:
+  # One-shot: upload + transcode + create
+  wf add ~/Films/my-film.mp4 --title "My Film" --category "Short Films" --year 2024
+
+  # Batch a folder
+  for f in ~/Films/*.mp4; do
+    wf add "$f" --title "$(basename "${f%.mp4}")" --category "Short Films"
+  done
+
+  # Upload separately, then create
+  wf upload ~/Desktop/my-film.mp4
+  wf transcode-wait abc123def
+  wf films create --title "My Film" --video /assets/videos/my-film.mp4
+
+  # Update existing film
+  wf films update my-film --category "Feature Films" --featured true
+
+  # Password protect a film
+  wf films update my-film --password "secret123"
+
+  # Remove password
+  wf films update my-film --password none
+HELP
+}
+
+# ── Portal Commands ─────────────────────────────────────
+
+cmd_portal() {
+  local subcmd="${1:-help}"; shift || true
+  case "$subcmd" in
+    clients)     cmd_portal_clients "$@" ;;
+    projects)    cmd_portal_projects "$@" ;;
+    add-version) cmd_portal_add_version "$@" ;;
+    upload-resource) cmd_portal_upload_resource "$@" ;;
+    migrate-project) cmd_portal_migrate "$@" ;;
+    help|--help) cmd_portal_help ;;
+    *) die "Unknown portal command: $subcmd (try: wf portal help)" ;;
+  esac
+}
+
+cmd_portal_clients() {
+  local action="${1:-list}"; shift || true
+  ensure_auth
+  case "$action" in
+    list)
+      api GET /api/clients | python3 -m json.tool
+      ;;
+    create)
+      local name="" slug="" password="" notes=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --name)     name="$2"; shift 2 ;;
+          --slug)     slug="$2"; shift 2 ;;
+          --password) password="$2"; shift 2 ;;
+          --notes)    notes="$2"; shift 2 ;;
+          *) die "Unknown flag: $1" ;;
+        esac
+      done
+      [[ -n "$name" ]] || die "Usage: wf portal clients create --name 'Client Name' [--password pw]"
+
+      local body
+      body=$(python3 -c "
+import json, sys
+d = {'name': sys.argv[1]}
+if sys.argv[2]: d['slug'] = sys.argv[2]
+if sys.argv[3]: d['password'] = sys.argv[3]
+if sys.argv[4]: d['notes'] = sys.argv[4]
+print(json.dumps(d))
+" "$name" "$slug" "$password" "$notes")
+
+      local result
+      result=$(api POST /api/clients -H "Content-Type: application/json" -d "$body")
+      echo "$result" | python3 -m json.tool
+
+      local client_slug
+      client_slug=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('slug',''))")
+      if [[ -n "$client_slug" ]]; then
+        info "Portal link: https://revelstoke.webbedfilms.com/portal/${client_slug}"
+      fi
+      ;;
+    delete)
+      local slug="${1:?Usage: wf portal clients delete <slug>}"
+      api DELETE "/api/clients/${slug}" | python3 -m json.tool
+      ;;
+    *) die "Unknown action: $action (list|create|delete)" ;;
+  esac
+}
+
+cmd_portal_projects() {
+  local client_slug="${1:?Usage: wf portal projects <client-slug> [action] [opts]}"; shift
+  local action="${1:-list}"; shift || true
+  ensure_auth
+  case "$action" in
+    list)
+      api GET "/api/clients/${client_slug}/projects" | python3 -m json.tool
+      ;;
+    create)
+      local title="" description=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --title)       title="$2"; shift 2 ;;
+          --description) description="$2"; shift 2 ;;
+          *) die "Unknown flag: $1" ;;
+        esac
+      done
+      [[ -n "$title" ]] || die "Usage: wf portal projects <client> create --title 'Title'"
+
+      local body
+      body=$(python3 -c "
+import json, sys
+d = {'title': sys.argv[1]}
+if sys.argv[2]: d['description'] = sys.argv[2]
+print(json.dumps(d))
+" "$title" "$description")
+
+      api POST "/api/clients/${client_slug}/projects" \
+        -H "Content-Type: application/json" -d "$body" | python3 -m json.tool
+      ;;
+    delete)
+      local project_slug="${1:?Usage: wf portal projects <client> delete <project-slug>}"
+      api DELETE "/api/clients/${client_slug}/projects/${project_slug}" | python3 -m json.tool
+      ;;
+    *) die "Unknown action: $action (list|create|delete)" ;;
+  esac
+}
+
+cmd_portal_add_version() {
+  local client_slug="${1:?Usage: wf portal add-version <client> <project> <video-file> [--note 'text']}"; shift
+  local project_slug="${1:?Usage: wf portal add-version <client> <project> <video-file>}"; shift
+  local file="" note=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --note) note="$2"; shift 2 ;;
+      -*)     die "Unknown flag: $1" ;;
+      *)
+        if [[ -z "$file" ]]; then file="$1"; shift
+        else die "Unexpected argument: $1"; fi
+        ;;
+    esac
+  done
+  [[ -n "$file" ]] || die "Usage: wf portal add-version <client> <project> <video-file> [--note 'text']"
+  [[ -f "$file" ]] || die "File not found: $file"
+
+  ensure_auth
+
+  info "==> Uploading $(basename "$file")..."
+  local upload_result
+  upload_result=$(cmd_upload_raw "$file")
+  local transcode_id
+  transcode_id=$(echo "$upload_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('transcodeId',''))")
+
+  [[ -n "$transcode_id" ]] || die "Upload failed — no transcodeId"
+
+  info "==> Transcoding..."
+  local transcode_result
+  transcode_result=$(cmd_transcode_wait_raw "$transcode_id")
+  local video_path thumbnail_path
+  video_path=$(echo "$transcode_result" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('videoPath', '/assets/videos/' + d.get('output','')))")
+  thumbnail_path=$(echo "$transcode_result" | python3 -c "import sys,json; print(json.load(sys.stdin).get('thumbnail',''))")
+
+  info "==> Adding version to ${client_slug}/${project_slug}..."
+  local body
+  body=$(python3 -c "
+import json, sys
+d = {'file_path': sys.argv[1]}
+if sys.argv[2]: d['thumbnail'] = sys.argv[2]
+if sys.argv[3]: d['note'] = sys.argv[3]
+print(json.dumps(d))
+" "$video_path" "$thumbnail_path" "$note")
+
+  api POST "/api/clients/${client_slug}/projects/${project_slug}/versions" \
+    -H "Content-Type: application/json" -d "$body" | python3 -m json.tool
+
+  info "==> Done! Version added."
+}
+
+cmd_portal_upload_resource() {
+  local client_slug="${1:?Usage: wf portal upload-resource <client> <file> --category <cat>}"; shift
+  local file="" category="other"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --category) category="$2"; shift 2 ;;
+      -*)         die "Unknown flag: $1" ;;
+      *)
+        if [[ -z "$file" ]]; then file="$1"; shift
+        else die "Unexpected argument: $1"; fi
+        ;;
+    esac
+  done
+  [[ -n "$file" ]] || die "Usage: wf portal upload-resource <client> <file> --category <cat>"
+  [[ -f "$file" ]] || die "File not found: $file"
+
+  ensure_auth
+  info "Uploading resource $(basename "$file") to ${client_slug} (${category})..."
+  api POST "/api/clients/${client_slug}/resources" \
+    -F "file=@${file}" \
+    -F "category=${category}" | python3 -m json.tool
+}
+
+cmd_portal_migrate() {
+  local old_uuid="${1:?Usage: wf portal migrate-project <old-uuid> --client 'Client Name'}"; shift
+  local client_name="" client_slug=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --client) client_name="$2"; shift 2 ;;
+      --slug)   client_slug="$2"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+  [[ -n "$client_name" ]] || die "Usage: wf portal migrate-project <old-uuid> --client 'Client Name'"
+  [[ -z "$client_slug" ]] && client_slug=$(slugify "$client_name")
+
+  ensure_auth
+
+  # Get old project
+  info "Fetching old project ${old_uuid}..."
+  local old_project
+  old_project=$(api GET /api/projects | python3 -c "
+import sys, json
+projects = json.load(sys.stdin)
+for p in projects:
+    if p.get('uuid') == '$old_uuid':
+        json.dump(p, sys.stdout)
+        sys.exit(0)
+print('null')
+sys.exit(1)
+" 2>/dev/null) || die "Old project not found: ${old_uuid}"
+
+  local project_title
+  project_title=$(echo "$old_project" | python3 -c "import sys,json; print(json.load(sys.stdin).get('title','Untitled'))")
+
+  # Create or find client
+  info "Ensuring client '${client_name}' exists..."
+  local client_check
+  client_check=$(api GET "/api/clients/${client_slug}" 2>/dev/null || echo '{"error":"not found"}')
+  if echo "$client_check" | grep -q '"error"'; then
+    info "Creating client: ${client_name}..."
+    api POST /api/clients \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"${client_name}\",\"slug\":\"${client_slug}\"}" > /dev/null
+  fi
+
+  # Create project under client
+  local project_slug
+  project_slug=$(slugify "$project_title")
+  info "Creating project: ${project_title}..."
+  api POST "/api/clients/${client_slug}/projects" \
+    -H "Content-Type: application/json" \
+    -d "{\"title\":\"${project_title}\"}" > /dev/null 2>&1 || true
+
+  # Migrate versions
+  info "Migrating versions..."
+  local versions
+  versions=$(api GET "/api/projects/${old_uuid}/versions")
+  echo "$versions" | python3 -c "
+import sys, json
+versions = json.load(sys.stdin)
+for v in sorted(versions, key=lambda x: x.get('version_number', 0)):
+    print(json.dumps({'video': v['video'], 'thumbnail': v.get('thumbnail',''), 'note': v.get('note','')}))
+" | while IFS= read -r version_json; do
+    api POST "/api/clients/${client_slug}/projects/${project_slug}/versions" \
+      -H "Content-Type: application/json" -d "$version_json" > /dev/null
+    info "  Migrated version"
+  done
+
+  info "==> Migration complete! Portal: https://revelstoke.webbedfilms.com/portal/${client_slug}"
+}
+
+cmd_portal_help() {
+  cat <<'HELP'
+wf portal — Client Portal management
+
+COMMANDS:
+  portal clients                          List all clients
+  portal clients create --name "N"        Create client portal
+    [--slug s] [--password pw] [--notes n]
+  portal clients delete <slug>            Delete a client
+
+  portal projects <client> [list]         List projects for a client
+  portal projects <client> create         Create project
+    --title "T" [--description "D"]
+  portal projects <client> delete <slug>  Delete a project
+
+  portal add-version <client> <project> <video-file>
+    [--note "text"]                       Upload video + add as next version
+
+  portal upload-resource <client> <file>
+    --category <cat>                      Upload a resource file
+    Categories: scripts, brand-guidelines, logos, graphics, other
+
+  portal migrate-project <old-uuid>       Migrate legacy screening project
+    --client "Client Name" [--slug s]     into the new portal system
+
+EXAMPLES:
+  wf portal clients create --name "In EOS"
+  wf portal projects in-eos create --title "Brand Film 2026"
+  wf portal add-version in-eos brand-film-2026 ~/video.mp4 --note "First cut"
+  wf portal upload-resource in-eos ~/brand-guide.pdf --category brand-guidelines
+  wf portal migrate-project abc123 --client "In EOS"
+HELP
+}
+
+# ── Dispatch ────────────────────────────────────────────
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  login)          cmd_login "$@" ;;
+  add)            cmd_add "$@" ;;
+  films)          cmd_films "$@" ;;
+  portal)         cmd_portal "$@" ;;
+  upload)         cmd_upload "$@" ;;
+  transcode)      cmd_transcode "$@" ;;
+  transcode-wait) cmd_transcode_wait "$@" ;;
+  regen-thumbs)   cmd_regen_thumbs "$@" ;;
+  files)          cmd_files "$@" ;;
+  help|--help|-h) cmd_help ;;
+  *) die "Unknown command: $cmd (try: wf help)" ;;
+esac

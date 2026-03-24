@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /portal/
+Disallow: /api/
+Disallow: /clients.html
+
+Sitemap: https://watch.webbedfilms.com/sitemap.xml
