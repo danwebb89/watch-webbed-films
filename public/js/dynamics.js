@@ -243,9 +243,9 @@
         if (p.x > canvas.width + 10) p.x = -10;
 
         if (p.warm) {
-          ctx.fillStyle = `rgba(222, 118, 43, ${alpha})`;
+          ctx.fillStyle = `rgba(200, 169, 110, ${alpha})`;
         } else {
-          ctx.fillStyle = `rgba(233, 224, 215, ${alpha * 0.6})`;
+          ctx.fillStyle = `rgba(240, 237, 232, ${alpha * 0.6})`;
         }
 
         ctx.beginPath();
@@ -254,7 +254,7 @@
 
         // Glow for larger warm particles
         if (p.warm && p.size > 1.2) {
-          ctx.fillStyle = `rgba(222, 118, 43, ${alpha * 0.15})`;
+          ctx.fillStyle = `rgba(200, 169, 110, ${alpha * 0.15})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
           ctx.fill();
@@ -573,17 +573,17 @@
           ctx.arc(p.x, p.y, p.size * 1.5, 0, Math.PI * 2);
           ctx.fill();
           // Bloom
-          ctx.fillStyle = `rgba(222, 118, 43, ${alpha * 0.15})`;
+          ctx.fillStyle = `rgba(200, 169, 110, ${alpha * 0.15})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size * 6, 0, Math.PI * 2);
           ctx.fill();
         } else if (p.warm) {
-          ctx.fillStyle = `rgba(222, 118, 43, ${alpha * 0.5})`;
+          ctx.fillStyle = `rgba(200, 169, 110, ${alpha * 0.5})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          ctx.fillStyle = `rgba(233, 224, 215, ${alpha * 0.35})`;
+          ctx.fillStyle = `rgba(240, 237, 232, ${alpha * 0.35})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
